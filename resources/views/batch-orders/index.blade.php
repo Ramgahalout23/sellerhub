@@ -11,8 +11,8 @@
 @section('content')
 <x-card padding="false">
     <x-slot:action>
-        <form class="flex gap-2" method="GET">
-            <select name="supplier_id" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+        <form class="flex gap-2 flex-wrap" method="GET">
+            <select name="supplier_id" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none max-w-[45vw] sm:max-w-none">
                 <option value="">All Suppliers</option>
                 @foreach($suppliers as $s)
                     <option value="{{ $s->id }}" {{ request('supplier_id') == $s->id ? 'selected' : '' }}>{{ $s->name }}</option>
@@ -47,10 +47,10 @@
                     <td class="px-5 py-3.5 text-gray-500 text-xs">{{ Str::limit($batch->notes, 30) }}</td>
                     <td class="px-5 py-3.5 text-right">
                         <div class="flex items-center justify-end gap-1">
-                            <a href="{{ route('batch-orders.show', $batch) }}" class="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all"><i class="bi bi-eye text-sm"></i></a>
+                            <a href="{{ route('batch-orders.show', $batch) }}" class="touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all" aria-label="View batch order"><i class="bi bi-eye text-base"></i></a>
                             <form action="{{ route('batch-orders.destroy', $batch) }}" method="POST" class="inline" onsubmit="return confirm('Delete this batch? Stock will be reversed.')">
                                 @csrf @method('DELETE')
-                                <button class="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all"><i class="bi bi-trash text-sm"></i></button>
+                                <button class="touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" aria-label="Delete batch order"><i class="bi bi-trash text-base"></i></button>
                             </form>
                         </div>
                     </td>

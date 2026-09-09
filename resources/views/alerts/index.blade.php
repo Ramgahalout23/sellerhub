@@ -54,7 +54,7 @@
             @if(!$alert->is_read)
             <form action="{{ route('alerts.read', $alert) }}" method="POST" class="flex-shrink-0">
                 @csrf @method('PATCH')
-                <button class="p-1 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all" title="Mark read"><i class="bi bi-check-lg"></i></button>
+                <button class="touch-target flex items-center justify-center p-1 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all" title="Mark read"><i class="bi bi-check-lg"></i></button>
             </form>
             @endif
         </div>

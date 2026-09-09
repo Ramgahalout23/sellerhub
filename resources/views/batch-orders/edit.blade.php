@@ -52,8 +52,8 @@
                             @if($item->quantity > 0)
                             <span class="text-[10px] text-amber-600 bg-amber-50 rounded-md px-2 py-0.5">Stock: {{ $item->product->stock_quantity }} units</span>
                             @endif
-                            <button type="button" class="remove-item rounded-lg p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove this item">
-                                <i class="bi bi-trash text-sm"></i>
+                            <button type="button" class="remove-item touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove this item" aria-label="Remove this item">
+                                <i class="bi bi-trash text-base"></i>
                             </button>
                         </div>
                     </div>
@@ -91,21 +91,18 @@
             </div>
         </x-card>
 
-        {{-- Total + Submit (fixed above bottom nav) --}}
+        {{-- Total + Submit (compact fixed bar above bottom nav) --}}
         <div class="fixed bottom-16 left-0 right-0 z-40 lg:static lg:bottom-auto border-t border-gray-100">
-            <div class="rounded-t-xl lg:rounded-xl border border-gray-200 bg-white shadow-sm lg:shadow-sm shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 lg:p-5">
-                    <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">TOTAL COST</p>
-                        <p class="text-2xl font-bold text-gray-900" id="grandTotal">₹{{ number_format($batchOrder->total_cost) }}</p>
-                        <p class="text-xs text-gray-400">Stock adjustments are automatic</p>
-                    </div>
-                    <div class="flex items-center gap-3 sm:shrink-0">
-                        <a href="{{ route('batch-orders.show', $batchOrder) }}" class="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Cancel</a>
-                        <button type="submit" class="touch-target rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all">
-                            <i class="bi bi-check-lg mr-1"></i> Save Changes
-                        </button>
-                    </div>
+            <div class="flex items-center justify-between gap-3 rounded-t-xl lg:rounded-xl border border-gray-200 bg-white px-4 py-2.5 lg:px-5 lg:py-4 shadow-sm lg:shadow-sm shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+                <div class="min-w-0">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">Total</p>
+                    <p class="text-lg lg:text-2xl font-bold text-gray-900 leading-tight truncate" id="grandTotal">₹{{ number_format($batchOrder->total_cost) }}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ route('batch-orders.show', $batchOrder) }}" class="touch-target inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 lg:px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all">Cancel</a>
+                    <button type="submit" class="touch-target inline-flex items-center justify-center rounded-xl bg-brand-600 px-3.5 lg:px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all whitespace-nowrap">
+                        <i class="bi bi-check-lg mr-1"></i> Save<span class="hidden sm:inline"> Changes</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -131,10 +128,9 @@ document.getElementById('addItem').addEventListener('click', function() {
     div.dataset.index = itemIndex;
     div.innerHTML = `
         <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-bold text-gray-400">New Item</span>
-            <button type="button" class="remove-item rounded-lg p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove">
-                <i class="bi bi-trash text-sm"></i>
-            </button>
+            <span class="text-xs font-bold text-gray-400">New Item</span>            <button type="button" class="remove-item touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove" aria-label="Remove this product">
+                            <i class="bi bi-trash text-base"></i>
+                        </button>
         </div>
         <div class="mb-3">
             <label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Product *</label>

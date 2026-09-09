@@ -44,7 +44,7 @@
                             <td class="py-2.5 text-right">
                                 <form action="{{ route('batch-orders.delete-item', [$batchOrder, $item]) }}" method="POST" class="inline" onsubmit="return confirm('Remove {{ $item->product->name }} (qty: {{ $item->quantity }})? Stock will be reduced by {{ $item->quantity }} units.')">
                                     @csrf @method('DELETE')
-                                    <button type="submit" class="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove item">
+                                    <button type="submit" class="touch-target flex items-center justify-center p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove item">
                                         <i class="bi bi-trash text-sm"></i>
                                     </button>
                                 </form>

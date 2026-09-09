@@ -130,7 +130,7 @@
     <!-- Low Stock -->
     <x-card title="Low Stock Alert" subtitle="Products below reorder threshold">
         <x-slot:action>
-            <a href="{{ route('products.low-stock') }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">View all →</a>
+            <a href="{{ route('products.low-stock') }}" class="inline-flex items-center min-h-[44px] px-2 -mr-2 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">View all →</a>
         </x-slot:action>
 
         @if($s['low_stock_products']->isEmpty())
@@ -170,7 +170,7 @@
     <!-- Pending Returns -->
     <x-card title="Pending Return Checks" subtitle="Orders awaiting status verification">
         <x-slot:action>
-            <a href="{{ route('orders.reminders') }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">View all →</a>
+            <a href="{{ route('orders.reminders') }}" class="inline-flex items-center min-h-[44px] px-2 -mr-2 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">View all →</a>
         </x-slot:action>
 
         @if($s['orders_needing_reminder']->isEmpty())

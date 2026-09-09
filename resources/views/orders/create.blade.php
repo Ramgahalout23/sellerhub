@@ -15,7 +15,7 @@
         </a>
     </div>
 
-    <form action="{{ route('orders.store') }}" method="POST" id="orderForm" class="pb-44 lg:pb-0">
+    <form action="{{ route('orders.store') }}" method="POST" id="orderForm" class="pb-36 lg:pb-0">
         @csrf
 
         {{-- Order Header --}}
@@ -72,7 +72,7 @@
                             <div class="text-sm font-bold text-gray-900 item-total">₹0</div>
                         </div>
                         <div class="sm:col-span-1 flex items-end justify-end">
-                            <button type="button" class="remove-item p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove"><i class="bi bi-trash text-sm"></i></button>
+                            <button type="button" class="remove-item touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Remove" aria-label="Remove this product"><i class="bi bi-trash text-base"></i></button>
                         </div>
                     </div>
 
@@ -101,7 +101,7 @@
                             <div class="charge-row grid grid-cols-12 gap-2 items-center">
                                 <div class="col-span-5"><input type="text" name="items[0][charges][0][charge_name]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="e.g. shipping, GST"></div>
                                 <div class="col-span-5"><input type="number" name="items[0][charges][0][amount]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="₹0" step="0.01" min="0"></div>
-                                <div class="col-span-2 text-right"><button type="button" class="remove-charge p-1 text-gray-400 hover:text-rose-600"><i class="bi bi-trash text-xs"></i></button></div>
+                                <div class="col-span-2 text-right"><button type="button" class="remove-charge touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600" aria-label="Remove this charge"><i class="bi bi-trash text-base"></i></button></div>
                             </div>
                         </div>
                     </div>
@@ -116,21 +116,19 @@
             </div>
         </x-card>
 
-        {{-- Grand Total + Submit (fixed above bottom nav) --}}
+        {{-- Grand Total + Submit (compact fixed bar above bottom nav) --}}
         <div class="fixed bottom-16 left-0 right-0 z-40 lg:static lg:bottom-auto border-t border-gray-100">
-            <div class="rounded-t-xl lg:rounded-xl border border-gray-200 bg-white shadow-sm lg:shadow-sm shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 lg:p-5">
-                    <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">TOTAL AMOUNT</p>
-                        <p class="text-2xl font-bold text-gray-900" id="grandTotal">₹0</p>
-                        <p class="text-xs text-gray-400"><span id="itemCount">1</span> product(s) · All items status: Pending</p>
-                    </div>
-                    <div class="flex items-center gap-3 sm:shrink-0">
-                        <a href="{{ route('orders.index') }}" class="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Cancel</a>
-                        <button type="submit" class="touch-target rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all">
-                            <i class="bi bi-check-lg mr-1"></i> Create Order
-                        </button>
-                    </div>
+            <div class="flex items-center justify-between gap-3 rounded-t-xl lg:rounded-xl border border-gray-200 bg-white px-4 py-2.5 lg:px-5 lg:py-4 shadow-sm lg:shadow-sm shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+                <div class="min-w-0">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">Total</p>
+                    <p class="text-lg lg:text-2xl font-bold text-gray-900 leading-tight truncate" id="grandTotal">₹0</p>
+                    <p class="text-[10px] lg:text-xs text-gray-400 leading-tight truncate"><span id="itemCount">1</span> product(s) · Status: Pending</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ route('orders.index') }}" class="touch-target inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 lg:px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all">Cancel</a>
+                    <button type="submit" class="touch-target inline-flex items-center justify-center rounded-xl bg-brand-600 px-3.5 lg:px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all whitespace-nowrap">
+                        <i class="bi bi-check-lg mr-1"></i> Create<span class="hidden sm:inline"> Order</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -165,7 +163,7 @@ document.getElementById('addItem').addEventListener('click', function() {
         <div class="charge-row grid grid-cols-12 gap-2 items-center">
             <div class="col-span-5"><input type="text" name="items[${itemIndex}][charges][0][charge_name]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="e.g. shipping, GST"></div>
             <div class="col-span-5"><input type="number" name="items[${itemIndex}][charges][0][amount]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="₹0" step="0.01" min="0"></div>
-            <div class="col-span-2 text-right"><button type="button" class="remove-charge p-1 text-gray-400 hover:text-rose-600"><i class="bi bi-trash text-xs"></i></button></div>
+            <div class="col-span-2 text-right"><button type="button" class="remove-charge touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600" aria-label="Remove this charge"><i class="bi bi-trash text-base"></i></button></div>
         </div>`;
 
     container.appendChild(clone);
@@ -208,7 +206,7 @@ function bindEvents(row) {
         div.innerHTML = `
             <div class="col-span-5"><input type="text" name="items[${idx}][charges][${chargeIdx}][charge_name]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="Charge name"></div>
             <div class="col-span-5"><input type="number" name="items[${idx}][charges][${chargeIdx}][amount]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="₹0" step="0.01" min="0"></div>
-            <div class="col-span-2 text-right"><button type="button" class="remove-charge p-1 text-gray-400 hover:text-rose-600"><i class="bi bi-trash text-xs"></i></button></div>`;
+            <div class="col-span-2 text-right"><button type="button" class="remove-charge touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600" aria-label="Remove this charge"><i class="bi bi-trash text-base"></i></button></div>`;
         container.appendChild(div);
         div.querySelector('.remove-charge').addEventListener('click', function() {
             if (container.querySelectorAll('.charge-row').length > 1) div.remove();

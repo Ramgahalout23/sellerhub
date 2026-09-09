@@ -44,10 +44,10 @@
                     </td>
                     <td class="px-5 py-4 text-right">
                         <div class="flex items-center justify-end gap-1">
-                            <a href="{{ route('platforms.show', $platform) }}" class="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all"><i class="bi bi-eye text-sm"></i></a>
+                            <a href="{{ route('platforms.show', $platform) }}" class="touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all" aria-label="View platform"><i class="bi bi-eye text-base"></i></a>
                             <form action="{{ route('platforms.destroy', $platform) }}" method="POST" class="inline" onsubmit="return confirm('Delete this platform?')">
                                 @csrf @method('DELETE')
-                                <button class="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all"><i class="bi bi-trash text-sm"></i></button>
+                                <button class="touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" aria-label="Delete platform"><i class="bi bi-trash text-base"></i></button>
                             </form>
                         </div>
                     </td>
@@ -76,7 +76,7 @@
                 @endif
                 </div>
             </div>
-            <div class="grid grid-cols-4 gap-2">
+            <div class="grid grid-cols-2 gap-2 min-[380px]:grid-cols-4">
                 <div><p class="text-[10px] text-gray-400">Commission</p><p class="text-xs font-bold text-gray-900">{{ $platform->charge_structure['commission_percent'] ?? 0 }}%</p></div>
                 <div><p class="text-[10px] text-gray-400">Shipping</p><p class="text-xs font-bold text-gray-900">₹{{ number_format($platform->charge_structure['shipping_fee'] ?? 0) }}</p></div>
                 <div><p class="text-[10px] text-gray-400">Closing</p><p class="text-xs font-bold text-gray-900">₹{{ number_format($platform->charge_structure['closing_fee'] ?? 0) }}</p></div>

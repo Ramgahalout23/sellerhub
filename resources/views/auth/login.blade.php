@@ -6,45 +6,8 @@
     <title>Login — Selling Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Jost', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            DEFAULT: '#047857',
-                            50: '#ecfdf5',
-                            100: '#d1fae5',
-                            200: '#a7f3d0',
-                            300: '#6ee7b7',
-                            400: '#34d399',
-                            500: '#10b981',
-                            600: '#047857',
-                            700: '#065f46',
-                            800: '#064e3b',
-                            900: '#022c22',
-                        }
-                    },
-                    keyframes: {
-                        'fade-in': { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-                        'slide-in': { '0%': { opacity: '0', transform: 'translateX(-20px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
-                        'pulse-slow': { '0%, 100%': { opacity: '0.3' }, '50%': { opacity: '0.6' } },
-                        'float': { '0%, 100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-8px)' } },
-                    },
-                    animation: {
-                        'fade-in': 'fade-in 0.6s ease-out forwards',
-                        'slide-in': 'slide-in 0.5s ease-out forwards',
-                        'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
-                        'float': 'float 6s ease-in-out infinite',
-                    }
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         .gradient-emerald {
             background:

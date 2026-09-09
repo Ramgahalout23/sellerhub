@@ -9,48 +9,8 @@
     <title>@yield('title', 'Selling Hub')</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: { 50:'#ecfdf5', 100:'#d1fae5', 200:'#a7f3d0', 300:'#6ee7b7', 400:'#34d399', 500:'#10b981', 600:'#059669', 700:'#047857', 800:'#065f46', 900:'#064e3b' },
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        [x-cloak] { display: none !important; }
-        .bi, .bi::before { font-family: 'bootstrap-icons' !important; }
-        .sidebar-link { display:flex;align-items:center;gap:12px;padding:10px 12px;font-size:14px;font-weight:500;border-radius:12px;transition:all .2s;color:#6b7280;text-decoration:none; }
-        .sidebar-link:hover { color:#111827;background:#f3f4f6; }
-        .sidebar-link.active { background:#ecfdf5;color:#047857;font-weight:600; }
-        .sidebar-link.active i { color:#059669; }
-        .sidebar-section { padding:20px 12px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af; }
-        .fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-        /* Bottom nav active */
-        .bottom-nav-item.active { color: #059669; }
-        .bottom-nav-item.active .nav-icon { background: #ecfdf5; color: #059669; }
-        /* Mobile sidebar overlay */
-        .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-        .sidebar-overlay.active { opacity: 1; pointer-events: auto; }
-        .sidebar-mobile { position: fixed; inset-y: 0; left: 0; z-index: 101; width: 280px; transform: translateX(-100%); transition: transform 0.3s ease; overflow-y: auto; }
-        .sidebar-mobile.active { transform: translateX(0); }
-        /* Touch-friendly buttons: min 44px */
-        .touch-target { min-height: 44px; min-width: 44px; touch-action: manipulation; }
-        /* Safe area for bottom nav */
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Jost:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @yield('styles')
 </head>
 <body class="h-full bg-gray-50/50 font-sans antialiased">
@@ -201,9 +161,9 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 lg:pl-64 pb-20 lg:pb-0">
+        <main class="flex-1 min-w-0 lg:pl-64 pb-20 lg:pb-0">
             <!-- Top Bar -->
-            <header class="sticky top-0 z-40 flex h-14 lg:h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-xl px-4 lg:px-6">
+            <header class="sticky top-0 z-[60] flex h-14 lg:h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-xl px-4 lg:px-6">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <!-- Mobile hamburger -->
                     <button onclick="toggleMobileSidebar()" class="touch-target flex lg:hidden items-center justify-center rounded-xl hover:bg-gray-100 -ml-1">
@@ -288,13 +248,30 @@
 
     <!-- Mobile sidebar toggle script -->
     <script>
-        function toggleMobileSidebar() {
-            document.getElementById('sidebarMobile').classList.toggle('active');
-            document.getElementById('sidebarOverlay').classList.toggle('active');
-        }
+        (function () {
+            var sidebar = document.getElementById('sidebarMobile');
+            var overlay = document.getElementById('sidebarOverlay');
+
+            window.toggleMobileSidebar = function () {
+                var open = !sidebar.classList.contains('active');
+                sidebar.classList.toggle('active', open);
+                overlay.classList.toggle('active', open);
+                document.body.classList.toggle('sidebar-open', open);
+                if (open) {
+                    var first = sidebar.querySelector('a, button');
+                    if (first) first.focus();
+                }
+            };
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+                    window.toggleMobileSidebar();
+                }
+            });
+        })();
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @stack('scripts')
     @yield('scripts')
 </body>
 </html>

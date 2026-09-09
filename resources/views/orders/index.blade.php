@@ -12,7 +12,7 @@
 <x-card padding="false">
     <x-slot:action>
         <form class="flex gap-2 flex-wrap" method="GET">
-            <input type="text" name="search" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none flex-1 min-w-[120px]" placeholder="Search order..." value="{{ request('search') }}">
+            <input type="text" name="search" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none flex-1 min-w-[120px] w-full sm:w-auto" placeholder="Search order..." value="{{ request('search') }}">
             <select name="status" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none">
                 <option value="">All Status</option>
                 @foreach(['pending','successful','customer_return','rto','missing'] as $s)
@@ -66,7 +66,7 @@
                     </td>
                     <td class="px-5 py-3.5 text-right text-gray-400 text-xs">{{ $order->created_at->format('d M') }}</td>
                     <td class="px-5 py-3.5 text-right">
-                        <a href="{{ route('orders.show', $order) }}" class="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all"><i class="bi bi-eye text-sm"></i></a>
+                        <a href="{{ route('orders.show', $order) }}" class="touch-target flex items-center justify-center p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-all"><i class="bi bi-eye text-sm"></i></a>
                     </td>
                 </tr>
                 @empty

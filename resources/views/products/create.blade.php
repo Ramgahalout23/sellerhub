@@ -4,7 +4,7 @@
 @section('content')
 <div class="max-w-4xl">
     <x-card>
-        <form action="{{ route('products.store') }}" method="POST" class="space-y-6">
+        <form action="{{ route('products.store') }}" method="POST" class="space-y-6 pb-32 lg:pb-0">
             @csrf
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>

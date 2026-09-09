@@ -1,11 +1,132 @@
 @import 'tailwindcss';
+@import 'bootstrap-icons/font/bootstrap-icons.min.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/* ── Design tokens (replace the old tailwind.config block) ─────────── */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Jost', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+    --color-brand-50: #ecfdf5;
+    --color-brand-100: #d1fae5;
+    --color-brand-200: #a7f3d0;
+    --color-brand-300: #6ee7b7;
+    --color-brand-400: #34d399;
+    --color-brand-500: #10b981;
+    --color-brand-600: #047857;
+    --color-brand-700: #065f46;
+    --color-brand-800: #064e3b;
+    --color-brand-900: #022c22;
+}
+
+/* ── Component classes ─────────────────────────────────────────────── */
+@layer components {
+    .form-input {
+        @apply w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none disabled:opacity-60 disabled:bg-gray-50;
+    }
+    .form-input-sm {
+        @apply w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 focus:outline-none;
+    }
+    .form-label {
+        @apply block text-sm font-semibold text-gray-700 mb-1.5;
+    }
+    .form-label-xs {
+        @apply block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5;
+    }
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer select-none whitespace-nowrap;
+    }
+    .btn-primary {
+        @apply bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-md shadow-brand-600/25 hover:shadow-lg hover:shadow-brand-600/30 hover:brightness-110 focus:ring-brand-500 active:scale-[0.98];
+    }
+    .btn-secondary {
+        @apply bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 shadow-sm focus:ring-gray-400 active:scale-[0.98];
+    }
+    .btn-danger {
+        @apply bg-rose-600 text-white hover:bg-rose-700 shadow-md shadow-rose-600/20 focus:ring-rose-500 active:scale-[0.98];
+    }
+    .btn-ghost {
+        @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-400;
+    }
+    .btn-outline {
+        @apply border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:ring-gray-400 active:scale-[0.98];
+    }
+    .card {
+        @apply rounded-2xl border border-gray-200/80 bg-white shadow-sm shadow-gray-900/[0.03];
+    }
+    .table-th {
+        @apply px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400;
+    }
+}
+
+/* ── Base polish ───────────────────────────────────────────────────── */
+.tnum { font-variant-numeric: tabular-nums; }
+[x-cloak] { display: none !important; }
+.bi, .bi::before { font-family: 'bootstrap-icons' !important; }
+
+.sidebar-link {
+    display:flex;align-items:center;gap:12px;padding:10px 12px;font-size:14px;font-weight:500;
+    border-radius:12px;transition:all .18s ease;color:#6b7280;text-decoration:none;position:relative;
+}
+.sidebar-link:hover { color:#111827;background:#f3f4f6; }
+.sidebar-link.active { background:#ecfdf5;color:#047857;font-weight:600; }
+.sidebar-link.active i { color:#059669; }
+.sidebar-section { padding:20px 12px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af; }
+
+.fade-in { animation: fadeIn .3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Bottom nav active */
+.bottom-nav-item { color:#9ca3af; transition:color .15s; }
+.bottom-nav-item.active { color:#059669; }
+.bottom-nav-item.active .nav-icon { background:#ecfdf5; color:#059669; }
+.bottom-nav-item.active span { font-weight:600; }
+
+.sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; opacity: 0; pointer-events: none; transition: opacity .3s; }
+.sidebar-overlay.active { opacity: 1; pointer-events: auto; }
+/* Position-based show/hide (no transform transition) — cannot get stuck off-screen */
+.sidebar-mobile { position: fixed; top: 0; bottom: 0; left: -296px; z-index: 101; width: 280px; overflow-y: auto; }
+.sidebar-mobile.active { left: 0; }
+
+
+.touch-target { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* Tap-target floor for small icon buttons (delete ✕, etc.) — keeps ≥40px hit area
+   without changing their visual size */
+@media (pointer: coarse) {
+    button[class*="p-1.5"], button[class*="p-1 "], button.p-0\.5 {
+        min-width: 40px;
+        min-height: 40px;
+    }
+}
+
+/* Long tokens (SKUs, URLs, names) must wrap, never force horizontal scroll */
+.break-token { overflow-wrap: anywhere; min-inline-size: 0; }
+td { overflow-wrap: break-word; }
+
+/* iOS Safari auto-zooms inputs with font-size < 16px on focus.
+   Keep 16px on small screens, restore the smaller type on ≥sm. */
+@media (max-width: 639px) {
+    .form-input, .form-input-sm,
+    input[type="text"], input[type="number"], input[type="email"],
+    input[type="password"], input[type="date"], input[type="search"],
+    select, textarea { font-size: 16px !important; }
+}
+
+/* Lock body scroll while the mobile sidebar is open */
+body.sidebar-open { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+    .fade-in { animation: none; }
+    * { transition-duration: .01ms !important; }
 }

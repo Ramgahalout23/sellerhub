@@ -14,26 +14,26 @@
 @endsection
 
 @section('content')
-<div class="max-w-6xl mx-auto space-y-4">
+<div class="max-w-6xl mx-auto space-y-4 min-w-0 overflow-x-clip">
 
     {{-- ═══════ TAB NAVIGATION ═══════ --}}
-    <div class="flex overflow-x-auto gap-1 border-b border-gray-200 -mx-4 px-4 lg:mx-0 lg:px-0 pb-0" id="tabBar">
-        <button data-tab="supplier" class="tab-btn active px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap touch-target flex items-center gap-1.5" onclick="switchTab('supplier')">
+    <div class="flex overflow-x-auto gap-1 border-b border-gray-200 -mx-4 px-4 lg:mx-0 lg:px-0 pb-0" id="tabBar" style="max-width:100%">
+        <button data-tab="supplier" class="tab-btn active px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('supplier')">
             <i class="bi bi-arrow-left-right"></i> Suppliers
         </button>
-        <button data-tab="profit" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap touch-target flex items-center gap-1.5" onclick="switchTab('profit')">
+        <button data-tab="profit" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('profit')">
             <i class="bi bi-graph-up-arrow"></i> Top Profit
         </button>
-        <button data-tab="loss" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap touch-target flex items-center gap-1.5" onclick="switchTab('loss')">
+        <button data-tab="loss" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('loss')">
             <i class="bi bi-graph-down-arrow"></i> Top Loss
         </button>
-        <button data-tab="returns" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap touch-target flex items-center gap-1.5" onclick="switchTab('returns')">
+        <button data-tab="returns" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('returns')">
             <i class="bi bi-arrow-return-left"></i> Returns
         </button>
-        <button data-tab="health" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap touch-target flex items-center gap-1.5" onclick="switchTab('health')">
+        <button data-tab="health" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('health')">
             <i class="bi bi-heart-pulse"></i> Health
         </button>
-        <button data-tab="trend" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap touch-target flex items-center gap-1.5" onclick="switchTab('trend')">
+        <button data-tab="trend" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('trend')">
             <i class="bi bi-calendar-range"></i> Trend
         </button>
     </div>
