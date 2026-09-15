@@ -6,7 +6,6 @@ use App\Http\Requests\StorePlatformRequest;
 use App\Http\Requests\UpdatePlatformRequest;
 use App\Models\Platform;
 use App\Services\PlatformService;
-use Illuminate\Http\JsonResponse;
 
 class PlatformController extends Controller
 {
@@ -17,6 +16,7 @@ class PlatformController extends Controller
     public function index()
     {
         $platforms = $this->service->all();
+
         return view('platforms.index', compact('platforms'));
     }
 
@@ -31,12 +31,14 @@ class PlatformController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Platform created.', 'data' => $platform], 201);
         }
+
         return redirect()->route('platforms.show', $platform)->with('success', 'Platform created successfully.');
     }
 
     public function show(Platform $platform)
     {
         $platform->load(['orders.items.product', 'payments']);
+
         return view('platforms.show', compact('platform'));
     }
 
@@ -51,6 +53,7 @@ class PlatformController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Platform updated.', 'data' => $platform]);
         }
+
         return redirect()->route('platforms.show', $platform)->with('success', 'Platform updated successfully.');
     }
 
@@ -60,6 +63,7 @@ class PlatformController extends Controller
         if (request()->wantsJson()) {
             return response()->json(['message' => 'Platform deleted.']);
         }
+
         return redirect()->route('platforms.index')->with('success', 'Platform deleted successfully.');
     }
 }

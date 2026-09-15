@@ -7,6 +7,8 @@ use App\Models\StockBatch;
 use App\Repositories\ProductRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ProductService
 {
@@ -84,7 +86,7 @@ class ProductService
             ->get();
 
         // Supplier comparison
-        $supplierComparison = app(\App\Services\OrderService::class)
+        $supplierComparison = app(OrderService::class)
             ->getSupplierComparison($product->id);
 
         return [
@@ -98,10 +100,75 @@ class ProductService
             'total_charges' => $totalCharges,
             'net_profit' => $totalReceived - $totalInvested - $totalCharges,
             'suppliers' => $product->suppliers,
+            'price_history' => $this->supplierPriceHistory($product),
             'stock_batches' => $stockBatches,
             'supplier_comparison' => $supplierComparison,
             'recent_orders' => $product->orderItems()->with(['order.platform'])->latest()->paginate(10),
             'custom_fields' => $this->repo->getCustomFieldValues($product),
+        ];
+    }
+
+    /**
+     * What every supplier has charged for this product over time, cheapest first.
+     *
+     * Built from the purchase records themselves (batch_order_items) rather than a
+     * separate price list, so it can never drift from the stock and cost data. One
+     * query regardless of how many suppliers or purchases exist.
+     */
+    public function supplierPriceHistory(Product $product): array
+    {
+        $rows = DB::table('batch_order_items')
+            ->join('batch_orders', 'batch_orders.id', '=', 'batch_order_items.batch_order_id')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'batch_orders.supplier_id')
+            ->where('batch_order_items.product_id', $product->id)
+            ->orderBy('batch_orders.order_date')
+            ->orderBy('batch_order_items.id')
+            ->get([
+                'batch_order_items.quantity',
+                'batch_order_items.unit_cost',
+                'batch_orders.order_date',
+                'suppliers.id as supplier_id',
+                'suppliers.name as supplier_name',
+            ]);
+
+        $suppliers = $rows->groupBy('supplier_id')->map(function ($purchases) {
+            $history = $purchases->map(fn ($row) => [
+                'date' => $row->order_date ? Carbon::parse($row->order_date) : null,
+                'unit_cost' => round((float) $row->unit_cost, 2),
+                'quantity' => (int) $row->quantity,
+            ])->values();
+
+            $costs = $history->pluck('unit_cost');
+            $last = (float) $costs->last();
+            $previous = $costs->count() > 1 ? (float) $costs->slice(-2, 1)->first() : null;
+
+            return [
+                'supplier_id' => $purchases->first()->supplier_id,
+                'supplier_name' => $purchases->first()->supplier_name ?? 'Unknown supplier',
+                'purchases' => $history->count(),
+                'total_qty' => (int) $history->sum('quantity'),
+                'last_date' => $history->last()['date'],
+                'last_cost' => $last,
+                'previous_cost' => $previous,
+                'change_percent' => ($previous && $previous > 0) ? round((($last - $previous) / $previous) * 100, 1) : null,
+                'min_cost' => round((float) $costs->min(), 2),
+                'max_cost' => round((float) $costs->max(), 2),
+                'avg_cost' => round((float) $costs->avg(), 2),
+                'history' => $history->all(),
+            ];
+        })->sortBy('last_cost')->values();
+
+        $cheapest = $suppliers->first();
+        $dearest = $suppliers->last();
+
+        return [
+            'suppliers' => $suppliers->all(),
+            'cheapest' => $cheapest,
+            'cheapest_cost' => $cheapest['last_cost'] ?? null,
+            'spread' => ($cheapest && $dearest && $suppliers->count() > 1)
+                ? round($dearest['last_cost'] - $cheapest['last_cost'], 2)
+                : 0.0,
+            'purchases' => $rows->count(),
         ];
     }
 

@@ -13,6 +13,7 @@ class Order extends Model
         'platform_id',
         'customer_name',
         'customer_phone',
+        'payment_mode',
         'status',
         'shipped_at',
         'status_updated_at',
@@ -31,16 +32,44 @@ class Order extends Model
 
     // --- Shipment Status Constants ---
 
-    const STATUS_CREATED    = 'created';
-    const STATUS_SHIPPED    = 'shipped';
+    const STATUS_CREATED = 'created';
+
+    const STATUS_SHIPPED = 'shipped';
+
     const STATUS_IN_TRANSIT = 'in_transit';
-    const STATUS_DELIVERED  = 'delivered';
+
+    const STATUS_DELIVERED = 'delivered';
+
+    /**
+     * A cancelled sale: its stock is returned, nothing is owed and no reminders fire.
+     * Line items keep their own outcome; the order is what's cancelled.
+     */
+    const STATUS_CANCELLED = 'cancelled';
 
     const ACTIVE_STATUSES = [
         self::STATUS_CREATED,
         self::STATUS_SHIPPED,
         self::STATUS_IN_TRANSIT,
         self::STATUS_DELIVERED,
+    ];
+
+    const ALL_STATUSES = [
+        self::STATUS_CREATED,
+        self::STATUS_SHIPPED,
+        self::STATUS_IN_TRANSIT,
+        self::STATUS_DELIVERED,
+        self::STATUS_CANCELLED,
+    ];
+
+    // --- Payment Mode Constants ---
+
+    const PAYMENT_MODE_PREPAID = 'prepaid';
+
+    const PAYMENT_MODE_COD = 'cod';
+
+    const PAYMENT_MODES = [
+        self::PAYMENT_MODE_PREPAID,
+        self::PAYMENT_MODE_COD,
     ];
 
     // --- Relationships ---
@@ -65,8 +94,8 @@ class Order extends Model
     public function scopeNeedsReminder($query)
     {
         return $query->whereNotNull('reminder_at')
-                     ->where('reminder_at', '<=', now())
-                     ->whereIn('status', self::ACTIVE_STATUSES);
+            ->where('reminder_at', '<=', now())
+            ->whereIn('status', self::ACTIVE_STATUSES);
     }
 
     public function scopeForPlatform($query, int $platformId)
@@ -94,7 +123,7 @@ class Order extends Model
      */
     public function getGrossRevenueAttribute(): float
     {
-        return (float) $this->items->sum(fn($item) => $item->quantity * $item->selling_price);
+        return (float) $this->items->sum(fn ($item) => $item->quantity * $item->selling_price);
     }
 
     /**
@@ -113,12 +142,30 @@ class Order extends Model
         return $this->gross_revenue - $this->total_charges;
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
+    /**
+     * Cash on delivery — the payment mode behind most return/RTO losses.
+     */
+    public function isCod(): bool
+    {
+        return $this->payment_mode === self::PAYMENT_MODE_COD;
+    }
+
+    public function paymentModeLabel(): string
+    {
+        return $this->isCod() ? 'Cash on Delivery' : 'Prepaid';
+    }
+
     /**
      * Check if all items have final outcomes
      */
     public function allItemsResolved(): bool
     {
-        return $this->items->every(fn($item) => $item->isOutcomeFinal());
+        return $this->items->every(fn ($item) => $item->isOutcomeFinal());
     }
 
     /**
@@ -127,7 +174,7 @@ class Order extends Model
     public function getItemStatusSummary(): array
     {
         return $this->items->groupBy('status')
-            ->map(fn($group) => $group->count())
+            ->map(fn ($group) => $group->count())
             ->toArray();
     }
 

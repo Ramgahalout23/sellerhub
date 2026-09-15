@@ -2,48 +2,77 @@
 
 namespace App\Console\Commands;
 
-use App\Models\OrderItem;
+use App\Models\Product;
+use App\Models\StockBatch;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class SyncStockFromReturns extends Command
 {
     protected $signature = 'selling-hub:sync-stock-returns {--dry-run}';
 
-    protected $description = 'Verify and sync stock quantities based on item return statuses';
+    protected $description = 'Verify that each product\'s stock matches its stock batches and repair drift';
 
     public function handle(): int
     {
-        $dryRun = $this->option('dry-run');
-        $fixed = 0;
+        $dryRun = (bool) $this->option('dry-run');
 
-        // Find sellable returns where stock may not have been added back
-        $sellableReturns = OrderItem::whereIn('status', ['customer_return', 'rto'])
-            ->with('returnDetail', 'product')
-            ->get()
-            ->filter(fn($item) => $item->returnDetail && $item->returnDetail->condition === 'sellable');
+        // The invariant: products.stock_quantity == SUM(stock_batches.remaining_quantity)
+        // for every product that has at least one stock batch. Returns/orders keep
+        // both sides in sync inside a transaction; this command catches any drift
+        // caused by manual edits or interrupted jobs.
+        $batchTotals = StockBatch::query()
+            ->select('product_id', DB::raw('SUM(remaining_quantity) as remaining'))
+            ->groupBy('product_id')
+            ->pluck('remaining', 'product_id');
 
-        if ($sellableReturns->isEmpty()) {
-            $this->info('No sellable returns to process.');
+        if ($batchTotals->isEmpty()) {
+            $this->info('No stock batches to check.');
+
             return self::SUCCESS;
         }
 
-        foreach ($sellableReturns as $item) {
-            $product = $item->product;
-            $returnDetail = $item->returnDetail;
+        $products = Product::whereIn('id', $batchTotals->keys())->get();
+        $drift = [];
 
-            $this->line("Order #{$item->order_id}, Item {$item->id}: {$product->name} (stock: {$product->stock_quantity})");
-
-            if ($dryRun) {
-                $this->line("  → Would add {$item->quantity} units back to stock");
-            } else {
-                $this->line("  ✅ Return processed ({$returnDetail->condition})");
+        foreach ($products as $product) {
+            $expected = (int) $batchTotals[$product->id];
+            if ((int) $product->stock_quantity !== $expected) {
+                $drift[] = ['product' => $product, 'expected' => $expected];
             }
-
-            $fixed++;
         }
 
-        $this->newLine();
-        $this->info("Processed {$fixed} sellable returns.");
+        if (empty($drift)) {
+            $this->info("All {$products->count()} products match their stock batches. Nothing to fix.");
+
+            return self::SUCCESS;
+        }
+
+        foreach ($drift as $row) {
+            /** @var Product $product */
+            $product = $row['product'];
+            $expected = $row['expected'];
+            $actual = (int) $product->stock_quantity;
+
+            $this->line(sprintf(
+                '  %s %s: recorded %d, expected %d (%+d)',
+                $dryRun ? '⚠' : '✏',
+                $product->sku,
+                $actual,
+                $expected,
+                $expected - $actual,
+            ));
+
+            if (! $dryRun) {
+                $product->update(['stock_quantity' => $expected]);
+            }
+        }
+
+        if ($dryRun) {
+            $this->warn(count($drift).' product(s) drifted. Re-run without --dry-run to repair.');
+        } else {
+            $this->info('Repaired '.count($drift).' product(s).');
+        }
 
         return self::SUCCESS;
     }

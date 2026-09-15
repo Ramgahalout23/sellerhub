@@ -50,8 +50,8 @@ class Supplier extends Model
     {
         return $query->where(function ($q) use ($term) {
             $q->where('name', 'like', "%{$term}%")
-              ->orWhere('contact_person', 'like', "%{$term}%")
-              ->orWhere('phone', 'like', "%{$term}%");
+                ->orWhere('contact_person', 'like', "%{$term}%")
+                ->orWhere('phone', 'like', "%{$term}%");
         });
     }
 }

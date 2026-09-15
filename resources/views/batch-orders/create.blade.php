@@ -16,7 +16,7 @@
         </a>
     </div>
 
-    <form action="{{ route('batch-orders.store') }}" method="POST" id="batchForm" class="pb-32 lg:pb-0">
+    <form action="{{ route('batch-orders.store') }}" method="POST" id="batchForm" enctype="multipart/form-data" class="pb-32 lg:pb-0">
         @csrf
 
         {{-- Supplier & Date --}}
@@ -39,6 +39,14 @@
             <div class="mt-4">
                 <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Notes</label>
                 <input type="text" name="notes" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none transition-all" value="{{ old('notes') }}" placeholder="e.g. Monthly restock, emergency purchase">
+            </div>
+            <div class="mt-4">
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Supplier Invoices (optional)</label>
+                <input type="file" name="invoices[]" multiple accept=".pdf,image/*" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 transition-all">
+                <p class="text-xs text-gray-400 mt-1.5">Attach the invoice/bill(s) you received from the supplier for this purchase. Select multiple files if the invoice has several pages (PDF or photos, max 8 MB each).</p>
+                @error('invoices')
+                    <p class="text-xs text-rose-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
         </x-card>
 
@@ -184,16 +192,9 @@ document.getElementById('addItem').addEventListener('click', function() {
     clone.querySelectorAll('.product-search').forEach(el => el.value = '');
     clone.querySelector('.item-total').textContent = '₹0';
 
-    // Reset to existing mode
-    clone.querySelectorAll('.mode-toggle').forEach(btn => {
-        btn.classList.remove('active', 'bg-brand-600', 'text-white', 'shadow-sm');
-        btn.classList.add('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-    });
-    const existingBtn = clone.querySelector('[data-mode="existing"]');
-    existingBtn.classList.add('active', 'bg-brand-600', 'text-white', 'shadow-sm');
-    existingBtn.classList.remove('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-    clone.querySelector('.existing-fields').classList.remove('hidden');
-    clone.querySelector('.new-fields').classList.add('hidden');
+    // A new row always starts in "Existing Product" mode, with the other field
+    // block disabled so it can neither be submitted nor block validation.
+    applyMode(clone, 'existing');
 
     container.appendChild(clone);
     itemIndex++;
@@ -206,23 +207,7 @@ function bindEvents(row) {
     rows.forEach(r => {
         // Mode toggle
         r.querySelectorAll('.mode-toggle').forEach(btn => {
-            btn.onclick = function() {
-                const mode = this.dataset.mode;
-                r.querySelectorAll('.mode-toggle').forEach(b => {
-                    b.classList.remove('active', 'bg-brand-600', 'text-white', 'shadow-sm');
-                    b.classList.add('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-                });
-                this.classList.add('active', 'bg-brand-600', 'text-white', 'shadow-sm');
-                this.classList.remove('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-
-                if (mode === 'existing') {
-                    r.querySelector('.existing-fields').classList.remove('hidden');
-                    r.querySelector('.new-fields').classList.add('hidden');
-                } else {
-                    r.querySelector('.existing-fields').classList.add('hidden');
-                    r.querySelector('.new-fields').classList.remove('hidden');
-                }
-            };
+            btn.onclick = function() { applyMode(r, this.dataset.mode); };
         });
 
         // Remove item
@@ -274,7 +259,7 @@ function bindEvents(row) {
                     opt.onclick = function() {
                         hiddenId.value = this.dataset.id;
                         searchInput.value = this.querySelector('.text-sm').textContent;
-                        const costField = r.querySelector('input[name*="unit_cost"]:not([name*="new_"])');
+                        const costField = r.querySelector('.existing-fields .item-cost');
                         if (costField && this.dataset.cost) costField.value = this.dataset.cost;
                         
                         // Show selected indicator
@@ -330,9 +315,50 @@ function bindEvents(row) {
     });
 }
 
+// Which of the two field blocks is live for this row
+function modeOf(row) {
+    return row.querySelector('.mode-toggle.active')?.dataset.mode || 'existing';
+}
+
+function fieldsFor(row, mode) {
+    return row.querySelector(mode === 'new' ? '.new-fields' : '.existing-fields');
+}
+
+/**
+ * Show one field block and disable the other. Disabled inputs are ignored by
+ * HTML validation *and* by the form payload — without this, the hidden
+ * "required" quantity blocks submission of a new-product row entirely.
+ */
+function applyMode(row, mode) {
+    const existing = row.querySelector('.existing-fields');
+    const fresh = row.querySelector('.new-fields');
+
+    existing.classList.toggle('hidden', mode === 'new');
+    fresh.classList.toggle('hidden', mode === 'existing');
+
+    existing.querySelectorAll('input').forEach(el => { el.disabled = mode === 'new'; });
+    fresh.querySelectorAll('input').forEach(el => { el.disabled = mode === 'existing'; });
+
+    row.querySelectorAll('.mode-toggle').forEach(btn => {
+        const on = btn.dataset.mode === mode;
+        btn.classList.toggle('active', on);
+        btn.classList.toggle('bg-brand-600', on);
+        btn.classList.toggle('text-white', on);
+        btn.classList.toggle('shadow-sm', on);
+        btn.classList.toggle('bg-white', !on);
+        btn.classList.toggle('text-gray-500', !on);
+        btn.classList.toggle('border', !on);
+        btn.classList.toggle('border-gray-200', !on);
+    });
+
+    calculateRowTotal(row);
+}
+
 function calculateRowTotal(row) {
-    const qty = parseFloat(row.querySelector('.item-qty')?.value) || 0;
-    const cost = parseFloat(row.querySelector('.item-cost')?.value) || 0;
+    // Both blocks contain an .item-qty / .item-cost; only the visible one counts.
+    const scope = fieldsFor(row, modeOf(row));
+    const qty = parseFloat(scope.querySelector('.item-qty')?.value) || 0;
+    const cost = parseFloat(scope.querySelector('.item-cost')?.value) || 0;
     row.querySelector('.item-total').textContent = '₹' + (qty * cost).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2});
 }
 
@@ -382,6 +408,9 @@ document.getElementById('batchForm').addEventListener('submit', function(e) {
     }
 });
 
+// Init: bind the first row, then sync each row's mode so the block that isn't
+// in use is hidden *and* disabled.
 bindEvents();
+document.querySelectorAll('.item-row').forEach(row => applyMode(row, modeOf(row)));
 </script>
 @endsection

@@ -15,7 +15,9 @@ class AccountingSeeder extends Seeder
         $flipkart = Platform::where('slug', 'flipkart')->first();
         $meesho = Platform::where('slug', 'meesho')->first();
 
-        if (!$amazon || !$flipkart || !$meesho) return;
+        if (! $amazon || ! $flipkart || ! $meesho) {
+            return;
+        }
 
         // --- Platform Payments (irregular payouts) ---
         $payments = [

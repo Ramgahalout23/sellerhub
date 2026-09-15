@@ -17,6 +17,7 @@
     $totalExpenses = $s['total_expenses'];
     $missingCost = $s['missing_cost'];
     $returnsQty = $s['returns_qty'] + $s['orphan_returns'];
+    $returnsRevenue = $s['returns_revenue'] ?? 0;
     $inventoryValue = $s['inventory_value'];
 
     // Simple profit
@@ -302,7 +303,7 @@
                 @if($returnsQty > 0)
                 <div class="flex justify-between text-sm py-2 border-b border-gray-100 mt-2">
                     <span class="text-gray-600">↩️ Returns ({{ number_format($returnsQty) }} items wapas aaye)</span>
-                    <span class="font-bold text-rose-500">₹{{ number_format($totalRevenue * ($returnsQty / max($returnsQty + $totalRevenue / 100, 1))) }} (approx)</span>
+                    <span class="font-bold text-rose-500">₹{{ number_format($returnsRevenue) }}</span>
                 </div>
                 @endif
             </div>
@@ -374,7 +375,11 @@
 
     <x-card>
         <h3 class="text-sm font-bold text-gray-900 mb-1">Platform Payments</h3>
-        <p class="text-xs text-gray-400 mb-3"><a href="{{ route('accounting.payments') }}" class="text-brand-600 hover:underline">Manage →</a></p>
+        <p class="text-xs text-gray-400 mb-3">
+            <a href="{{ route('accounting.payments') }}" class="text-brand-600 hover:underline">Manage payments →</a>
+            <span class="text-gray-300">·</span>
+            <a href="{{ route('accounting.settlements') }}" class="text-brand-600 hover:underline">Payout reconciliation →</a>
+        </p>
         <div class="space-y-3">
             <div class="bg-emerald-50 rounded-xl p-3">
                 <p class="text-xs font-semibold text-emerald-700 mb-1">Orders se auto mila</p>
@@ -386,6 +391,14 @@
                 <p class="text-lg font-bold text-blue-600">₹{{ number_format($s['manual_payments']) }}</p>
                 <p class="text-xs text-blue-600">Jab platform paisa bhejta hai account mein</p>
             </div>
+            @php $owedTotals = $overview['totals'] ?? null; @endphp
+            @if($owedTotals && ($owedTotals['owed'] > 0 || $owedTotals['banked'] > 0))
+            <div class="bg-amber-50 rounded-xl p-3">
+                <p class="text-xs font-semibold text-amber-700 mb-1">Still owed by platforms</p>
+                <p class="text-lg font-bold text-amber-700">₹{{ number_format($owedTotals['owed']) }}</p>
+                <p class="text-xs text-amber-600">Earned ₹{{ number_format($owedTotals['expected_net']) }} − banked ₹{{ number_format($owedTotals['banked']) }} · <a href="{{ route('accounting.settlements') }}" class="underline">reconcile</a></p>
+            </div>
+            @endif
             <div class="border-t border-gray-100 pt-2 flex justify-between text-sm font-bold">
                 <span class="text-gray-900">Total Received</span>
                 <span class="text-gray-900">₹{{ number_format($cashIn) }}</span>

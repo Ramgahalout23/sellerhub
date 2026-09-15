@@ -26,8 +26,9 @@ class PlatformPayment extends Model
 
     // --- Constants ---
 
-    const TYPE_ORDER   = 'order';   // Auto-created from successful order
-    const TYPE_MANUAL  = 'manual';  // Manual platform settlement
+    const TYPE_ORDER = 'order';   // Auto-created from successful order
+
+    const TYPE_MANUAL = 'manual';  // Manual platform settlement
 
     // --- Relationships ---
 

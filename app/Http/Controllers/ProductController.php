@@ -29,6 +29,7 @@ class ProductController extends Controller
     {
         $suppliers = $this->supplierService->allActive();
         $customFields = $this->service->productFields();
+
         return view('products.create', compact('suppliers', 'customFields'));
     }
 
@@ -52,6 +53,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $summary = $this->service->getDetailSummary($product);
+
         return view('products.show', $summary);
     }
 
@@ -96,12 +98,19 @@ class ProductController extends Controller
     public function lowStock()
     {
         $products = $this->service->lowStock();
+
         return view('products.low-stock', compact('products'));
     }
 
     public function detailSummary(Product $product): JsonResponse
     {
         $summary = $this->service->getDetailSummary($product);
-        return response()->json(['data' => $summary]);
+
+        // The product page's "load more sales" JS expects pre-rendered rows.
+        return response()->json([
+            'html' => view('products._sale-rows', ['recent_orders' => $summary['recent_orders']])->render(),
+            'hasMore' => $summary['recent_orders']->hasMorePages(),
+            'data' => $summary,
+        ]);
     }
 }

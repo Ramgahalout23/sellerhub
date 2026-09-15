@@ -25,12 +25,14 @@ class AlertController extends Controller
     public function markAsRead(Alert $alert): JsonResponse
     {
         $alert = $this->repo->markAsRead($alert);
+
         return response()->json(['message' => 'Alert marked as read.', 'data' => $alert]);
     }
 
     public function markAllAsRead(): JsonResponse
     {
         $count = $this->repo->markAllAsRead();
+
         return response()->json(['message' => "{$count} alerts marked as read."]);
     }
 

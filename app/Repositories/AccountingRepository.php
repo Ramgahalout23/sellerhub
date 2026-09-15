@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\GeneralExpense;
 use App\Models\PlatformPayment;
+use App\Models\PlatformSettlement;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -11,8 +12,52 @@ class AccountingRepository
 {
     public function __construct(
         protected PlatformPayment $paymentModel = new PlatformPayment,
-        protected GeneralExpense $expenseModel = new GeneralExpense
+        protected GeneralExpense $expenseModel = new GeneralExpense,
+        protected PlatformSettlement $settlementModel = new PlatformSettlement
     ) {}
+
+    // --- Platform Settlements ---
+
+    public function paginatedSettlements(int $perPage = 15, ?int $platformId = null, ?string $status = null): LengthAwarePaginator
+    {
+        $query = $this->settlementModel->with('platform')->latestFirst();
+
+        if ($platformId) {
+            $query->forPlatform($platformId);
+        }
+
+        if ($status === 'pending') {
+            $query->pending();
+        }
+
+        if ($status === 'received') {
+            $query->received();
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    public function findSettlement(int $id): PlatformSettlement
+    {
+        return $this->settlementModel->with('platform')->findOrFail($id);
+    }
+
+    public function createSettlement(array $data): PlatformSettlement
+    {
+        return $this->settlementModel->create($data);
+    }
+
+    public function updateSettlement(PlatformSettlement $settlement, array $data): PlatformSettlement
+    {
+        $settlement->update($data);
+
+        return $settlement->fresh('platform');
+    }
+
+    public function deleteSettlement(PlatformSettlement $settlement): bool
+    {
+        return $settlement->delete();
+    }
 
     // --- Platform Payments ---
 
@@ -35,12 +80,14 @@ class AccountingRepository
     public function createPayment(array $data): PlatformPayment
     {
         $data['type'] = $data['type'] ?? 'manual';
+
         return $this->paymentModel->create($data);
     }
 
     public function updatePayment(PlatformPayment $payment, array $data): PlatformPayment
     {
         $payment->update($data);
+
         return $payment->fresh('platform');
     }
 
@@ -89,6 +136,7 @@ class AccountingRepository
     public function updateExpense(GeneralExpense $expense, array $data): GeneralExpense
     {
         $expense->update($data);
+
         return $expense->fresh();
     }
 

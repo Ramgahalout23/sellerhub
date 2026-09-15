@@ -28,11 +28,15 @@ class OrderItem extends Model
 
     // --- Status Constants ---
 
-    const STATUS_PENDING         = 'pending';
-    const STATUS_SUCCESSFUL      = 'successful';
+    const STATUS_PENDING = 'pending';
+
+    const STATUS_SUCCESSFUL = 'successful';
+
     const STATUS_CUSTOMER_RETURN = 'customer_return';
-    const STATUS_RTO             = 'rto';
-    const STATUS_MISSING         = 'missing';
+
+    const STATUS_RTO = 'rto';
+
+    const STATUS_MISSING = 'missing';
 
     const OUTCOME_STATUSES = [
         self::STATUS_SUCCESSFUL,

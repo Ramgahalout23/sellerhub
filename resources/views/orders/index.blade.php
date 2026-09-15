@@ -3,6 +3,9 @@
 @section('subtitle', $orders->total() . ' orders total')
 
 @section('actions')
+<a href="{{ route('orders.import.create') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all touch-target">
+    <i class="bi bi-upload"></i> <span class="hidden sm:inline">Import CSV</span><span class="sm:hidden">Import</span>
+</a>
 <a href="{{ route('orders.create') }}" class="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all touch-target">
     <i class="bi bi-plus-lg"></i> <span class="hidden sm:inline">New Order</span><span class="sm:hidden">New</span>
 </a>
@@ -14,10 +17,21 @@
         <form class="flex gap-2 flex-wrap" method="GET">
             <input type="text" name="search" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none flex-1 min-w-[120px] w-full sm:w-auto" placeholder="Search order..." value="{{ request('search') }}">
             <select name="status" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-                <option value="">All Status</option>
+                <option value="">All Item Status</option>
                 @foreach(['pending','successful','customer_return','rto','missing'] as $s)
                     <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ ucfirst(str_replace('_', ' ', $s)) }}</option>
                 @endforeach
+            </select>
+            <select name="order_status" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+                <option value="">All Shipments</option>
+                @foreach(\App\Models\Order::ALL_STATUSES as $s)
+                    <option value="{{ $s }}" {{ request('order_status') === $s ? 'selected' : '' }}>{{ ucfirst(str_replace('_', ' ', $s)) }}</option>
+                @endforeach
+            </select>
+            <select name="payment_mode" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+                <option value="">All Payments</option>
+                <option value="prepaid" {{ request('payment_mode') === 'prepaid' ? 'selected' : '' }}>Prepaid</option>
+                <option value="cod" {{ request('payment_mode') === 'cod' ? 'selected' : '' }}>Cash on Delivery</option>
             </select>
             <button class="touch-target rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"><i class="bi bi-search"></i></button>
         </form>
@@ -52,13 +66,19 @@
                         </div>
                     </td>
                     <td class="px-5 py-3.5"><x-badge variant="info">{{ $order->platform->name }}</x-badge></td>
-                    <td class="px-5 py-3.5 text-gray-600">{{ $order->customer_name ?? '—' }}</td>
+                    <td class="px-5 py-3.5 text-gray-600">
+                        {{ $order->customer_name ?? '—' }}
+                        @if($order->isCod())
+                            <x-badge variant="warning" class="text-[10px]">COD</x-badge>
+                        @endif
+                    </td>
                     <td class="px-5 py-3.5 text-right font-medium text-gray-900">₹{{ number_format($order->gross_revenue) }}</td>
                     <td class="px-5 py-3.5 text-center">
                         @php
                             $shipmentVariant = match($order->status) {
                                 'delivered' => 'success',
                                 'shipped', 'in_transit' => 'warning',
+                                'cancelled' => 'danger',
                                 default => 'default'
                             };
                         @endphp
@@ -103,10 +123,12 @@
                     $shipmentVariant = match($order->status) {
                         'delivered' => 'success',
                         'shipped', 'in_transit' => 'warning',
+                        'cancelled' => 'danger',
                         default => 'default'
                     };
                 @endphp
                 <x-badge :variant="$shipmentVariant">{{ ucfirst($order->status) }}</x-badge>
+                <x-badge :variant="$order->isCod() ? 'warning' : 'default'" class="text-[10px]">{{ $order->isCod() ? 'COD' : 'Prepaid' }}</x-badge>
                 @foreach($order->items as $item)
                     @php
                         $itemVariant = match($item->status) {

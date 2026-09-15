@@ -15,7 +15,7 @@
         </a>
     </div>
 
-    <form action="{{ route('batch-orders.update', $batchOrder) }}" method="POST" id="editForm" class="pb-44 lg:pb-0">
+    <form action="{{ route('batch-orders.update', $batchOrder) }}" method="POST" id="editForm" enctype="multipart/form-data" class="pb-44 lg:pb-0">
         @csrf
         @method('PUT')
 
@@ -38,6 +38,37 @@
             <div class="mt-4">
                 <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Notes</label>
                 <input type="text" name="notes" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none transition-all" value="{{ old('notes', $batchOrder->notes) }}" placeholder="e.g. Monthly restock, emergency purchase">
+            </div>
+            <div class="mt-4">
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Supplier Invoices</label>
+
+                @if($batchOrder->invoices->isEmpty())
+                    <p class="mb-2 text-xs text-gray-400">No invoice attached yet.</p>
+                @else
+                    <ul class="mb-3 space-y-1.5">
+                        @foreach($batchOrder->invoices as $invoice)
+                            <li class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                @if($invoice->is_image)
+                                    <i class="bi bi-image text-sky-500"></i>
+                                @else
+                                    <i class="bi bi-file-earmark-pdf text-rose-500"></i>
+                                @endif
+                                <a href="{{ route('batch-orders.invoices.download', [$batchOrder, $invoice]) }}" target="_blank" class="min-w-0 flex-1 truncate text-sm font-medium text-brand-600 hover:text-brand-700">{{ $invoice->filename }}</a>
+                                <span class="shrink-0 text-[10px] uppercase text-gray-400">{{ $invoice->extension }}@if($invoice->human_size) · {{ $invoice->human_size }}@endif</span>
+                                <form action="{{ route('batch-orders.invoices.destroy', [$batchOrder, $invoice]) }}" method="POST" class="shrink-0" onsubmit="return confirm('Remove {{ $invoice->filename }}?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-all" aria-label="Remove invoice"><i class="bi bi-trash text-sm"></i></button>
+                                </form>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                <input type="file" name="invoices[]" multiple accept=".pdf,image/*" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 transition-all">
+                <p class="text-xs text-gray-400 mt-1.5">New files are added to the list above (max 8 MB each).</p>
+                @error('invoices')
+                    <p class="text-xs text-rose-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
         </x-card>
 

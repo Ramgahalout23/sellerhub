@@ -47,6 +47,19 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Supplier invoices. Deliberately private: supplier pricing must not be
+         * web-served, so this disk is not "serveable" and lives outside the
+         * web-exposed storage/app/public directory. Files are streamed through an
+         * authenticated route instead.
+         */
+        'invoices' => [
+            'driver' => 'local',
+            'root' => storage_path('app/invoices'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

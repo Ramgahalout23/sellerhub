@@ -89,7 +89,10 @@ class StockBatch extends Model
 
     public function getUtilizationPercentAttribute(): float
     {
-        if ($this->original_quantity <= 0) return 0;
+        if ($this->original_quantity <= 0) {
+            return 0;
+        }
+
         return round((($this->original_quantity - $this->remaining_quantity) / $this->original_quantity) * 100, 1);
     }
 

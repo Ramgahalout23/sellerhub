@@ -15,7 +15,7 @@ class UpdatePlatformRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|required|string|max:255',
-            'slug' => 'nullable|string|max:255|unique:platforms,slug,' . $this->route('platform'),
+            'slug' => 'nullable|string|max:255|unique:platforms,slug,'.$this->route('platform'),
             'charge_structure' => 'nullable|array',
             'charge_structure.*' => 'numeric',
             'is_active' => 'boolean',

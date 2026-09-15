@@ -70,7 +70,9 @@ class BatchOrderSeeder extends Seeder
 
         foreach ($batches as $batch) {
             $supplier = Supplier::where('name', $batch['supplier'])->first();
-            if (!$supplier) continue;
+            if (! $supplier) {
+                continue;
+            }
 
             $totalCost = 0;
             foreach ($batch['items'] as $item) {
@@ -86,7 +88,9 @@ class BatchOrderSeeder extends Seeder
 
             foreach ($batch['items'] as $item) {
                 $product = Product::where('sku', $item['sku'])->first();
-                if (!$product) continue;
+                if (! $product) {
+                    continue;
+                }
 
                 BatchOrderItem::create([
                     'batch_order_id' => $batchOrder->id,

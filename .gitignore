@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local artifacts that must never be committed
+cookies.txt
+/deploy/keys

@@ -11,8 +11,9 @@ use App\Models\ReturnBatch;
 use App\Models\StockBatch;
 use App\Repositories\OrderRepository;
 use App\Repositories\ProductRepository;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class OrderService
 {
@@ -26,9 +27,11 @@ class OrderService
         ?string $status = null,
         ?int $productId = null,
         ?int $platformId = null,
-        ?string $search = null
+        ?string $search = null,
+        ?string $orderStatus = null,
+        ?string $paymentMode = null
     ): LengthAwarePaginator {
-        return $this->orderRepo->paginated($perPage, $status, $productId, $platformId, $search);
+        return $this->orderRepo->paginated($perPage, $status, $productId, $platformId, $search, $orderStatus, $paymentMode);
     }
 
     public function find(int $id): Order
@@ -95,8 +98,12 @@ class OrderService
             ->get();
 
         foreach ($batches as $batch) {
-            if ($qtyNeeded <= 0) break;
-            if ($batch->remaining_quantity <= 0) continue;
+            if ($qtyNeeded <= 0) {
+                break;
+            }
+            if ($batch->remaining_quantity <= 0) {
+                continue;
+            }
 
             $deductQty = min($qtyNeeded, $batch->remaining_quantity);
 
@@ -132,7 +139,60 @@ class OrderService
      */
     public function updateShipmentStatus(Order $order, string $newStatus): Order
     {
+        if ($order->status === Order::STATUS_CANCELLED) {
+            throw new InvalidArgumentException("Order #{$order->id} was cancelled, so its shipment status cannot change.");
+        }
+
         return $this->orderRepo->updateShipmentStatus($order, $newStatus);
+    }
+
+    /**
+     * Cancel an order: hand its stock back to the batches it came from and stop all
+     * reminders. The order stays in history instead of being deleted.
+     *
+     * Only items still awaiting an outcome give stock back — anything already resolved
+     * (sold, returned, lost) has had its stock movement settled elsewhere.
+     */
+    public function cancel(Order $order): Order
+    {
+        if ($order->status === Order::STATUS_CANCELLED) {
+            return $order;
+        }
+
+        foreach ($order->items as $item) {
+            if ($item->status !== 'pending') {
+                continue;
+            }
+
+            $links = OrderItemBatch::where('order_item_id', $item->id)->with('stockBatch')->get();
+
+            foreach ($links as $link) {
+                $batch = $link->stockBatch;
+
+                if ($batch) {
+                    $restored = $batch->remaining_quantity + $link->quantity_deducted;
+                    $batch->update([
+                        'remaining_quantity' => $restored,
+                        'status' => $restored >= $batch->original_quantity ? 'available' : 'partial',
+                    ]);
+                }
+
+                if ($item->product) {
+                    $this->productRepo->updateStock($item->product, $link->quantity_deducted);
+                }
+
+                // Remove the links so a later delete can't restore the same stock twice.
+                $link->delete();
+            }
+        }
+
+        $order->update([
+            'status' => Order::STATUS_CANCELLED,
+            'status_updated_at' => now(),
+            'reminder_at' => null,
+        ]);
+
+        return $order->fresh(['items.product', 'items.charges', 'items.returnDetail', 'platform']);
     }
 
     /**
@@ -164,7 +224,9 @@ class OrderService
     protected function createPaymentForItem(OrderItem $item): void
     {
         $revenue = $item->quantity * $item->selling_price;
-        if ($revenue <= 0) return;
+        if ($revenue <= 0) {
+            return;
+        }
 
         PlatformPayment::create([
             'platform_id' => $item->order->platform_id,
@@ -209,8 +271,12 @@ class OrderService
             $qtyToRestore = $qtyReturned;
 
             foreach ($sourceBatches as $sourceBatch) {
-                if ($qtyToRestore <= 0) break;
-                if ($sourceBatch->quantity_deducted <= 0) continue;
+                if ($qtyToRestore <= 0) {
+                    break;
+                }
+                if ($sourceBatch->quantity_deducted <= 0) {
+                    continue;
+                }
 
                 $restoreQty = min($qtyToRestore, $sourceBatch->quantity_deducted);
                 $batch = $sourceBatch->stockBatch;
@@ -267,7 +333,7 @@ class OrderService
         return $this->orderRepo->delete($order);
     }
 
-    public function needsReminder(): \Illuminate\Database\Eloquent\EloquentCollection
+    public function needsReminder(): EloquentCollection
     {
         return $this->orderRepo->needsReminder();
     }
@@ -299,7 +365,9 @@ class OrderService
 
         foreach ($batches as $supplierId => $supplierBatches) {
             $supplier = $supplierBatches->first()->supplier;
-            if (!$supplier) continue;
+            if (! $supplier) {
+                continue;
+            }
 
             $batchIds = $supplierBatches->pluck('id');
             $totalSupplied = $supplierBatches->sum('original_quantity');
@@ -327,7 +395,7 @@ class OrderService
                 ->where('status', 'missing')
                 ->sum('quantity');
 
-            $totalCost = $supplierBatches->sum(fn($b) => $b->original_quantity * $b->unit_cost);
+            $totalCost = $supplierBatches->sum(fn ($b) => $b->original_quantity * $b->unit_cost);
             $avgCost = $totalSupplied > 0 ? $totalCost / $totalSupplied : 0;
 
             // Net sold = deducted - returned (actual units that stayed sold)

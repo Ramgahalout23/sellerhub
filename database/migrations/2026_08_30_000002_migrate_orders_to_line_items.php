@@ -28,7 +28,7 @@ return new class extends Migration
                 $chargesExist = DB::table('order_charges')->where('order_id', $order->id)->exists();
                 if ($chargesExist) {
                     // Add order_item_id column if it doesn't exist
-                    if (!Schema::hasColumn('order_charges', 'order_item_id')) {
+                    if (! Schema::hasColumn('order_charges', 'order_item_id')) {
                         Schema::table('order_charges', function (Blueprint $table) {
                             $table->foreignId('order_item_id')->nullable()->after('order_id');
                         });
@@ -63,7 +63,7 @@ return new class extends Migration
     public function down(): void
     {
         // Reverse: re-create old columns on orders
-        if (!Schema::hasColumn('orders', 'product_id')) {
+        if (! Schema::hasColumn('orders', 'product_id')) {
             Schema::table('orders', function (Blueprint $table) {
                 $table->foreignId('product_id')->nullable()->after('id');
                 $table->integer('quantity')->default(1)->after('customer_phone');
@@ -88,7 +88,7 @@ return new class extends Migration
 
     private function mapStatus(string $oldStatus): string
     {
-        return match($oldStatus) {
+        return match ($oldStatus) {
             'created', 'shipped', 'in_transit', 'delivered' => 'pending',
             'successful' => 'successful',
             'customer_return' => 'customer_return',

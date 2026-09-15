@@ -2,18 +2,16 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Platform;
-use App\Models\Supplier;
-use App\Models\Product;
 use App\Models\BatchOrder;
 use App\Models\BatchOrderItem;
-use App\Models\StockBatch;
-use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\GeneralExpense;
+use App\Models\Order;
+use App\Models\Platform;
+use App\Models\Product;
+use App\Models\StockBatch;
+use App\Models\Supplier;
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {

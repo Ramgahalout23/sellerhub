@@ -5,7 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
 
 class Product extends Model
 {
@@ -73,7 +74,7 @@ class Product extends Model
     {
         return $query->where(function ($q) use ($term) {
             $q->where('name', 'like', "%{$term}%")
-              ->orWhere('sku', 'like', "%{$term}%");
+                ->orWhere('sku', 'like', "%{$term}%");
         });
     }
 
@@ -126,7 +127,10 @@ class Product extends Model
     public function getReturnRatioAttribute(): float
     {
         $dispatched = $this->total_sold + $this->total_returned + $this->total_missing;
-        if ($dispatched === 0) return 0;
+        if ($dispatched === 0) {
+            return 0;
+        }
+
         return round(($this->total_returned / $dispatched) * 100, 1);
     }
 
@@ -146,6 +150,7 @@ class Product extends Model
     public function getTotalChargesAttribute(): float
     {
         $itemIds = $this->orderItems()->where('status', 'successful')->pluck('id');
+
         return (float) OrderItemCharge::whereIn('order_item_id', $itemIds)->sum('amount');
     }
 }

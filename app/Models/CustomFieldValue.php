@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -26,7 +27,7 @@ class CustomFieldValue extends Model
     public function scopeForEntity($query, string $entityType, int $entityId)
     {
         return $query->where('entity_type', $entityType)
-                     ->where('entity_id', $entityId);
+            ->where('entity_id', $entityId);
     }
 
     // --- Helpers ---
@@ -34,13 +35,15 @@ class CustomFieldValue extends Model
     public function getTypedValue()
     {
         $field = $this->customField;
-        if (!$field) return $this->value;
+        if (! $field) {
+            return $this->value;
+        }
 
         return match ($field->field_type) {
-            'number'   => (float) $this->value,
-            'boolean'  => (bool) $this->value,
-            'date'     => $this->value ? \Carbon\Carbon::parse($this->value) : null,
-            default    => $this->value,
+            'number' => (float) $this->value,
+            'boolean' => (bool) $this->value,
+            'date' => $this->value ? Carbon::parse($this->value) : null,
+            default => $this->value,
         };
     }
 }

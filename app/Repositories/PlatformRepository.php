@@ -39,6 +39,7 @@ class PlatformRepository
     public function update(Platform $platform, array $data): Platform
     {
         $platform->update($data);
+
         return $platform->fresh();
     }
 

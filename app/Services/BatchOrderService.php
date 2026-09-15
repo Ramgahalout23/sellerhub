@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\BatchOrder;
-use App\Models\BatchOrderItem;
 use App\Models\Product;
 use App\Models\StockBatch;
 use App\Repositories\BatchOrderRepository;
@@ -34,7 +33,9 @@ class BatchOrderService
         // Create stock batches for each item + update product stock
         foreach ($batchOrder->items as $batchItem) {
             $product = $batchItem->product;
-            if (!$product) continue;
+            if (! $product) {
+                continue;
+            }
 
             // Create a stock batch (FIFO tracking unit)
             StockBatch::create([
@@ -49,11 +50,17 @@ class BatchOrderService
 
             // Update product stock
             $this->productRepo->updateStock($product, $batchItem->quantity);
+
+            // Keep the supplier's price for this product current. "Who is cheapest now"
+            // is a weekly decision, so the price must not go stale after the first buy.
+            $product->suppliers()->syncWithoutDetaching([
+                $batchOrder->supplier_id => ['last_known_price' => $batchItem->unit_cost],
+            ]);
         }
 
         // Recalculate total cost
         $batchOrder->load('items');
-        $totalCost = $batchOrder->items->sum(fn($item) => $item->quantity * $item->unit_cost);
+        $totalCost = $batchOrder->items->sum(fn ($item) => $item->quantity * $item->unit_cost);
         $batchOrder->update(['total_cost' => $totalCost]);
 
         return $batchOrder->fresh(['supplier', 'items.product']);
@@ -61,9 +68,10 @@ class BatchOrderService
 
     public function update(BatchOrder $batchOrder, array $data, array $items = []): BatchOrder
     {
-        if (!empty($items)) {
+        if (! empty($items)) {
             return $this->updateItems($batchOrder, $data, $items);
         }
+
         return $this->batchRepo->update($batchOrder, $data);
     }
 
@@ -90,10 +98,14 @@ class BatchOrderService
 
         // 4. Create new items + stock batches
         foreach ($newItems as $item) {
-            if (empty($item['product_id']) || empty($item['quantity'])) continue;
+            if (empty($item['product_id']) || empty($item['quantity'])) {
+                continue;
+            }
 
             $product = Product::find($item['product_id']);
-            if (!$product) continue;
+            if (! $product) {
+                continue;
+            }
 
             $qty = (int) $item['quantity'];
             $cost = (float) $item['unit_cost'];
@@ -116,11 +128,15 @@ class BatchOrderService
             ]);
 
             $this->productRepo->updateStock($product, $qty);
+
+            $product->suppliers()->syncWithoutDetaching([
+                $batchOrder->supplier_id => ['last_known_price' => $cost],
+            ]);
         }
 
         // 5. Recalculate total cost
         $batchOrder->load('items');
-        $totalCost = $batchOrder->items->sum(fn($item) => $item->quantity * $item->unit_cost);
+        $totalCost = $batchOrder->items->sum(fn ($item) => $item->quantity * $item->unit_cost);
         $batchOrder->update(['total_cost' => $totalCost]);
 
         return $batchOrder->fresh(['supplier', 'items.product']);
@@ -146,7 +162,7 @@ class BatchOrderService
 
         // Recalculate total
         $batchOrder->load('items');
-        $totalCost = $batchOrder->items->sum(fn($i) => $i->quantity * $i->unit_cost);
+        $totalCost = $batchOrder->items->sum(fn ($i) => $i->quantity * $i->unit_cost);
         $batchOrder->update(['total_cost' => $totalCost]);
 
         return $batchOrder->fresh(['supplier', 'items.product']);

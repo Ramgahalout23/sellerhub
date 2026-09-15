@@ -27,8 +27,10 @@ class Alert extends Model
     // --- Alert Types ---
 
     const TYPE_RETURN_REMINDER = 'return_reminder';
-    const TYPE_LOW_STOCK       = 'low_stock';
-    const TYPE_GENERAL         = 'general';
+
+    const TYPE_LOW_STOCK = 'low_stock';
+
+    const TYPE_GENERAL = 'general';
 
     // --- Scopes ---
 

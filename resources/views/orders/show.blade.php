@@ -2,6 +2,15 @@
 @section('title', 'Order ' . ($order->order_number ?? '#' . $order->id))
 
 @section('content')
+@if($order->isCancelled())
+<div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 flex items-start gap-3">
+    <i class="bi bi-x-octagon text-rose-600 text-lg shrink-0"></i>
+    <p class="text-sm text-rose-800">
+        This order was cancelled{{ $order->status_updated_at ? ' on '.$order->status_updated_at->format('d M Y') : '' }}.
+        Its stock went back to the batches it came from, so it is excluded from revenue, reminders and platform payouts.
+    </p>
+</div>
+@endif
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
     <!-- Left Column -->
     <div class="lg:col-span-1 space-y-4">
@@ -10,6 +19,10 @@
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Order #</p><p class="text-sm font-medium text-gray-900">{{ $order->order_number ?? '—' }}</p></div>
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Platform</p><x-badge variant="info">{{ $order->platform->name }}</x-badge></div>
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Customer</p><p class="text-sm text-gray-700">{{ $order->customer_name ?? '—' }}</p></div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Payment</p>
+                    <x-badge :variant="$order->isCod() ? 'warning' : 'success'">{{ $order->paymentModeLabel() }}</x-badge>
+                </div>
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Products</p><p class="text-sm text-gray-900">{{ $order->items->count() }} item(s), {{ $order->total_quantity }} unit(s)</p></div>
                 <div class="border-t border-gray-100 pt-3 space-y-2">
                     <div class="flex justify-between text-sm"><span class="text-gray-500">Gross Revenue</span><span class="font-bold text-gray-900">₹{{ number_format($order->gross_revenue) }}</span></div>
@@ -17,7 +30,7 @@
                     <div class="flex justify-between text-sm"><span class="font-medium text-gray-700">Net Revenue</span><span class="font-bold {{ $order->net_revenue >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">₹{{ number_format($order->net_revenue) }}</span></div>
                 </div>
                 <div class="border-t border-gray-100 pt-3">
-                    @php $sv = match($order->status) { 'delivered' => 'success', 'shipped','in_transit' => 'warning', default => 'default' }; @endphp
+                    @php $sv = match($order->status) { 'delivered' => 'success', 'shipped','in_transit' => 'warning', 'cancelled' => 'danger', default => 'default' }; @endphp
                     <x-badge :variant="$sv" size="md">Shipment: {{ ucfirst(str_replace('_', ' ', $order->status)) }}</x-badge>
                 </div>
                 @if($order->shipped_at)
@@ -40,6 +53,18 @@
                 </select>
                 <button type="submit" class="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all">
                     <i class="bi bi-check-lg me-1"></i>Update Shipment
+                </button>
+            </form>
+        </x-card>
+        @endif
+
+        @if(! $order->isCancelled())
+        <x-card title="Cancel this order">
+            <p class="text-xs text-gray-500 mb-3">Not going ahead? Cancel instead of deleting — the stock returns to its batches and the order stays in your history.</p>
+            <form action="{{ route('orders.cancel', $order) }}" method="POST" onsubmit="return confirm('Cancel this order and return its stock?');">
+                @csrf @method('PATCH')
+                <button type="submit" class="w-full rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 transition-all">
+                    <i class="bi bi-x-octagon me-1"></i>Cancel order
                 </button>
             </form>
         </x-card>
@@ -108,8 +133,8 @@
             </div>
             @endif
 
-            {{-- Item status update (if pending) --}}
-            @if($item->status === 'pending')
+            {{-- Item status update (if pending and the sale is still live) --}}
+            @if($item->status === 'pending' && ! $order->isCancelled())
             <div class="border-t border-gray-100 pt-3">
                 <form action="{{ route('orders.update-item-status', [$order, $item]) }}" method="POST" class="flex flex-wrap gap-2 items-end">
                     @csrf @method('PATCH')

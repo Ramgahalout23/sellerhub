@@ -4,7 +4,10 @@ namespace App\Repositories;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderItemCharge;
+use App\Models\OrderItemReturn;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class OrderRepository
@@ -18,17 +21,28 @@ class OrderRepository
         ?string $status = null,
         ?int $productId = null,
         ?int $platformId = null,
-        ?string $search = null
+        ?string $search = null,
+        ?string $orderStatus = null,
+        ?string $paymentMode = null
     ): LengthAwarePaginator {
         $query = $this->model->with(['items.product', 'platform'])->latest();
 
         if ($status) {
             // Filter by item-level status
-            $query->whereHas('items', fn($q) => $q->where('status', $status));
+            $query->whereHas('items', fn ($q) => $q->where('status', $status));
+        }
+
+        // Order-level shipment status (including cancelled), which item status can't express.
+        if ($orderStatus) {
+            $query->where('status', $orderStatus);
+        }
+
+        if ($paymentMode) {
+            $query->where('payment_mode', $paymentMode);
         }
 
         if ($productId) {
-            $query->whereHas('items', fn($q) => $q->where('product_id', $productId));
+            $query->whereHas('items', fn ($q) => $q->where('product_id', $productId));
         }
 
         if ($platformId) {
@@ -38,7 +52,7 @@ class OrderRepository
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
-                  ->orWhere('customer_name', 'like', "%{$search}%");
+                    ->orWhere('customer_name', 'like', "%{$search}%");
             });
         }
 
@@ -71,9 +85,9 @@ class OrderRepository
                 ]);
 
                 // Create charges for this line item
-                if (!empty($item['charges'])) {
+                if (! empty($item['charges'])) {
                     foreach ($item['charges'] as $charge) {
-                        if (!empty($charge['charge_name']) && $charge['amount'] > 0) {
+                        if (! empty($charge['charge_name']) && $charge['amount'] > 0) {
                             $orderItem->charges()->create([
                                 'charge_name' => $charge['charge_name'],
                                 'amount' => $charge['amount'],
@@ -97,7 +111,7 @@ class OrderRepository
             'status_updated_at' => now(),
         ];
 
-        if ($newStatus === 'shipped' && !$order->shipped_at) {
+        if ($newStatus === 'shipped' && ! $order->shipped_at) {
             $update['shipped_at'] = now();
             $update['reminder_at'] = now()->addDays(7);
         }
@@ -122,7 +136,7 @@ class OrderRepository
     /**
      * Add return detail to an order item
      */
-    public function addItemReturn(OrderItem $item, array $returnData): \App\Models\OrderItemReturn
+    public function addItemReturn(OrderItem $item, array $returnData): OrderItemReturn
     {
         return $item->returnDetail()->create($returnData);
     }
@@ -136,11 +150,12 @@ class OrderRepository
                 $item->returnDetail()->delete();
                 $item->delete();
             }
+
             return $order->delete();
         });
     }
 
-    public function needsReminder(): \Illuminate\Support\Collection
+    public function needsReminder(): Collection
     {
         return $this->model->needsReminder()->with(['items.product', 'platform'])->get();
     }
@@ -164,7 +179,7 @@ class OrderRepository
      */
     public function totalCharges(): float
     {
-        return (float) \App\Models\OrderItemCharge::whereIn('order_item_id', 
+        return (float) OrderItemCharge::whereIn('order_item_id',
             OrderItem::where('status', 'successful')->pluck('id')
         )->sum('amount');
     }

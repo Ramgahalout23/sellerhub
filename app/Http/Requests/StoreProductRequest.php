@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreProductRequest extends FormRequest
 {
@@ -15,7 +16,12 @@ class StoreProductRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'sku' => 'required|string|max:255|unique:products,sku',
+            'sku' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('products', 'sku')->ignore($this->route('product')),
+            ],
             'description' => 'nullable|string',
             'cost_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',

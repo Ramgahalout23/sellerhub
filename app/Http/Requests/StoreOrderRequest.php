@@ -18,6 +18,7 @@ class StoreOrderRequest extends FormRequest
             'platform_id' => 'required|exists:platforms,id',
             'customer_name' => 'nullable|string|max:255',
             'customer_phone' => 'nullable|string|max:20',
+            'payment_mode' => 'nullable|in:prepaid,cod',
             'notes' => 'nullable|string',
 
             // Line items (required, at least 1)
@@ -25,6 +26,10 @@ class StoreOrderRequest extends FormRequest
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.selling_price' => 'required|numeric|min:0',
+            'items.*.notes' => 'nullable|string',
+
+            // Optional manual batch selection (must belong to the same product)
+            'items.*.stock_batch_id' => 'nullable|exists:stock_batches,id',
 
             // Per-item charges (optional)
             'items.*.charges' => 'nullable|array',

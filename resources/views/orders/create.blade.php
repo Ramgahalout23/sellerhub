@@ -27,16 +27,25 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Platform *</label>
-                    <select name="platform_id" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none transition-all" required>
+                    <select name="platform_id" id="platformSelect" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none transition-all" required>
                         <option value="">Select platform...</option>
                         @foreach($platforms as $p)
-                            <option value="{{ $p->id }}" {{ old('platform_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
+                            <option value="{{ $p->id }}" data-fees="{{ $platformFeeNotes[$p->id] ?? '' }}" {{ old('platform_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
                         @endforeach
                     </select>
+                    <p class="platform-fee-note mt-1.5 text-[10px] font-medium text-gray-400 leading-tight"></p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Customer Name</label>
                     <input type="text" name="customer_name" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none transition-all" value="{{ old('customer_name') }}" placeholder="Customer name">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Payment</label>
+                    <select name="payment_mode" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none transition-all">
+                        <option value="prepaid" {{ old('payment_mode', 'prepaid') === 'prepaid' ? 'selected' : '' }}>Prepaid (paid online)</option>
+                        <option value="cod" {{ old('payment_mode') === 'cod' ? 'selected' : '' }}>Cash on Delivery</option>
+                    </select>
+                    <p class="mt-1.5 text-[10px] text-gray-400 leading-tight">COD orders carry most return/RTO risk</p>
                 </div>
             </div>
             <div class="mt-4">
@@ -123,6 +132,7 @@
                     <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">Total</p>
                     <p class="text-lg lg:text-2xl font-bold text-gray-900 leading-tight truncate" id="grandTotal">₹0</p>
                     <p class="text-[10px] lg:text-xs text-gray-400 leading-tight truncate"><span id="itemCount">1</span> product(s) · Status: Pending</p>
+                    <p class="text-[10px] lg:text-xs font-medium text-amber-600 leading-tight truncate hidden" id="chargeSummary"></p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     <a href="{{ route('orders.index') }}" class="touch-target inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 lg:px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all">Cancel</a>
@@ -159,12 +169,11 @@ document.getElementById('addItem').addEventListener('click', function() {
     clone.querySelector('.stock-source-list').innerHTML = '';
     var batchInput = clone.querySelector('.stock-batch-id');
     if (batchInput) { batchInput.name = 'items[' + itemIndex + '][stock_batch_id]'; batchInput.value = ''; }
-    clone.querySelector('.charges-container').innerHTML = `
-        <div class="charge-row grid grid-cols-12 gap-2 items-center">
-            <div class="col-span-5"><input type="text" name="items[${itemIndex}][charges][0][charge_name]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="e.g. shipping, GST"></div>
-            <div class="col-span-5"><input type="number" name="items[${itemIndex}][charges][0][amount]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="₹0" step="0.01" min="0"></div>
-            <div class="col-span-2 text-right"><button type="button" class="remove-charge touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600" aria-label="Remove this charge"><i class="bi bi-trash text-base"></i></button></div>
-        </div>`;
+    clone.querySelector('.charges-container').innerHTML = chargeRowHtml(itemIndex, 0);
+    // The clone inherits the template row's data-* state; a new row starts clean,
+    // and auto-fill applies to it until the user types a charge by hand.
+    delete clone.dataset.chargesTotal;
+    delete clone.dataset.chargesAuto;
 
     container.appendChild(clone);
     itemIndex++;
@@ -187,38 +196,29 @@ function bindEvents(row) {
             const priceInput = row.querySelector('.item-price');
             if (priceInput) priceInput.value = opt.dataset.price || '';
             calculateRowTotal(row);
+            calculateTotal();
             loadStockSource(row, opt.value);
+            fillChargesSoon();
         } else {
             row.querySelector('.stock-source-preview')?.classList.add('hidden');
         }
     });
 
     row.querySelectorAll('.item-qty, .item-price').forEach(inp => {
-        inp.addEventListener('input', function() { calculateRowTotal(row); calculateTotal(); });
+        inp.addEventListener('input', function() { calculateRowTotal(row); calculateTotal(); fillChargesSoon(); });
     });
 
     row.querySelector('.add-charge')?.addEventListener('click', function() {
         const container = row.querySelector('.charges-container');
-        const idx = row.dataset.index;
         const chargeIdx = container.querySelectorAll('.charge-row').length;
-        const div = document.createElement('div');
-        div.className = 'charge-row grid grid-cols-12 gap-2 items-center';
-        div.innerHTML = `
-            <div class="col-span-5"><input type="text" name="items[${idx}][charges][${chargeIdx}][charge_name]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="Charge name"></div>
-            <div class="col-span-5"><input type="number" name="items[${idx}][charges][${chargeIdx}][amount]" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="₹0" step="0.01" min="0"></div>
-            <div class="col-span-2 text-right"><button type="button" class="remove-charge touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600" aria-label="Remove this charge"><i class="bi bi-trash text-base"></i></button></div>`;
-        container.appendChild(div);
-        div.querySelector('.remove-charge').addEventListener('click', function() {
-            if (container.querySelectorAll('.charge-row').length > 1) div.remove();
-        });
+        container.insertAdjacentHTML('beforeend', chargeRowHtml(row.dataset.index, chargeIdx));
+        // Adding a charge by hand means the user owns the numbers on this row.
+        row.dataset.chargesAuto = '0';
+        bindChargeRemovers(row);
+        updateChargeSummary();
     });
 
-    row.querySelectorAll('.remove-charge').forEach(btn => {
-        btn.onclick = function() {
-            const container = row.querySelector('.charges-container');
-            if (container.querySelectorAll('.charge-row').length > 1) this.closest('.charge-row').remove();
-        };
-    });
+    bindChargeRemovers(row);
 }
 
 function calculateRowTotal(row) {
@@ -239,6 +239,7 @@ function calculateTotal() {
     });
     document.getElementById('grandTotal').textContent = '₹' + total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2});
     document.getElementById('itemCount').textContent = count;
+    updateChargeSummary();
 }
 
 // Load stock source (selectable) for selected product
@@ -299,7 +300,162 @@ function loadStockSource(row, productId) {
         });
 }
 
+// ---- Per-item charges: markup + auto-fill from the platform's charge structure ----
+
+function chargeRowHtml(idx, chargeIdx, name, amount) {
+    name = name || '';
+    amount = (amount === undefined || amount === null || amount === '') ? '' : amount;
+    return `
+        <div class="charge-row grid grid-cols-12 gap-2 items-center">
+            <div class="col-span-5"><input type="text" name="items[${idx}][charges][${chargeIdx}][charge_name]" value="${name}" autocomplete="off" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="e.g. shipping, GST"></div>
+            <div class="col-span-5"><input type="number" name="items[${idx}][charges][${chargeIdx}][amount]" value="${amount}" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" placeholder="₹0" step="0.01" min="0"></div>
+            <div class="col-span-2 text-right"><button type="button" class="remove-charge touch-target flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600" aria-label="Remove this charge"><i class="bi bi-trash text-base"></i></button></div>
+        </div>`;
+}
+
+function bindChargeRemovers(row) {
+    const container = row.querySelector('.charges-container');
+    if (!container) return;
+
+    container.querySelectorAll('.remove-charge').forEach(function(btn) {
+        btn.onclick = function() {
+            if (container.querySelectorAll('.charge-row').length > 1) {
+                this.closest('.charge-row').remove();
+            } else {
+                // Never leave a row with no charge inputs at all.
+                container.innerHTML = chargeRowHtml(row.dataset.index, 0);
+                bindChargeRemovers(row);
+            }
+            updateChargeSummary();
+        };
+    });
+
+    // The moment a value is typed, the user takes over this row: stop auto-filling it.
+    container.querySelectorAll('input').forEach(function(inp) {
+        inp.addEventListener('input', function() {
+            row.dataset.chargesAuto = '0';
+            updateChargeSummary();
+        });
+    });
+}
+
+function money(n) {
+    return (Math.round(n * 100) / 100).toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+}
+
+// Responses are tiny and immutable for a given (platform, amount) pair, so one
+// in-memory cache means typing a quantity costs zero extra requests.
+const chargeCache = {};
+
+function fetchChargePreview(platformId, amount) {
+    const key = platformId + ':' + amount.toFixed(2);
+    if (key in chargeCache) return Promise.resolve(chargeCache[key]);
+
+    return fetch('{{ route('orders.charge-preview') }}?platform_id=' + encodeURIComponent(platformId) + '&amount=' + amount.toFixed(2), {
+        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+    }).then(function(r) {
+        return r.ok ? r.json() : null;
+    }).then(function(json) {
+        chargeCache[key] = json;
+        return json;
+    }).catch(function() { return null; });
+}
+
+function renderRowCharges(row, preview) {
+    const container = row.querySelector('.charges-container');
+    if (!container) return;
+
+    const idx = row.dataset.index;
+    const charges = (preview && preview.charges) ? preview.charges : [];
+
+    container.innerHTML = charges.length
+        ? charges.map(function(c, i) { return chargeRowHtml(idx, i, c.charge_name, c.amount); }).join('')
+        : chargeRowHtml(idx, 0);
+
+    row.dataset.chargesTotal = preview ? preview.total : 0;
+    bindChargeRemovers(row);
+}
+
+function fillPlatformCharges() {
+    const platformSel = document.getElementById('platformSelect');
+    if (!platformSel || !platformSel.value) return;
+
+    document.querySelectorAll('.item-row').forEach(function(row) {
+        if (row.dataset.chargesAuto === '0') return;
+
+        const productSel = row.querySelector('.product-select');
+        if (!productSel || !productSel.value) return;
+
+        const qty = parseFloat(row.querySelector('.item-qty') ? row.querySelector('.item-qty').value : 0) || 0;
+        const price = parseFloat(row.querySelector('.item-price') ? row.querySelector('.item-price').value : 0) || 0;
+        const amount = qty * price;
+        if (amount <= 0) return;
+
+        fetchChargePreview(platformSel.value, amount).then(function(preview) {
+            if (row.dataset.chargesAuto === '0') return; // user edited while we were fetching
+            renderRowCharges(row, preview);
+            updateChargeSummary();
+        });
+    });
+}
+
+function rowChargeTotal(row) {
+    if (row.dataset.chargesAuto === '0') {
+        let sum = 0;
+        row.querySelectorAll('.charges-container input[type="number"]').forEach(function(inp) { sum += parseFloat(inp.value) || 0; });
+        return sum;
+    }
+    return parseFloat(row.dataset.chargesTotal || 0) || 0;
+}
+
+function updateChargeSummary() {
+    const el = document.getElementById('chargeSummary');
+    if (!el) return;
+
+    let fees = 0, revenue = 0, hasFees = false;
+    document.querySelectorAll('.item-row').forEach(function(row) {
+        const rowFees = rowChargeTotal(row);
+        if (rowFees > 0) { fees += rowFees; hasFees = true; }
+        const qty = parseFloat(row.querySelector('.item-qty') ? row.querySelector('.item-qty').value : 0) || 0;
+        const price = parseFloat(row.querySelector('.item-price') ? row.querySelector('.item-price').value : 0) || 0;
+        revenue += qty * price;
+    });
+
+    if (!hasFees) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+    }
+
+    el.classList.remove('hidden');
+    el.textContent = 'Platform fees ≈ ₹' + money(fees) + ' · Net ≈ ₹' + money(revenue - fees);
+}
+
+function updatePlatformFeeNote() {
+    const sel = document.getElementById('platformSelect');
+    const note = document.querySelector('.platform-fee-note');
+    if (!sel || !note) return;
+
+    const opt = sel.options[sel.selectedIndex];
+    const fees = opt && opt.dataset ? (opt.dataset.fees || '') : '';
+    note.textContent = fees ? 'Charges: ' + fees : '';
+}
+
+function debounce(fn, ms) {
+    let t;
+    return function() { clearTimeout(t); t = setTimeout(fn, ms); };
+}
+
+const fillChargesSoon = debounce(fillPlatformCharges, 350);
+
 // Init first row
 bindEvents(document.querySelector('.item-row'));
+
+document.getElementById('platformSelect')?.addEventListener('change', function() {
+    updatePlatformFeeNote();
+    fillPlatformCharges();
+});
+updatePlatformFeeNote();
+updateChargeSummary();
 </script>
 @endsection

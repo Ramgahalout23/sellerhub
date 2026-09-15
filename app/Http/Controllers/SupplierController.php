@@ -6,7 +6,6 @@ use App\Http\Requests\StoreSupplierRequest;
 use App\Http\Requests\UpdateSupplierRequest;
 use App\Models\Supplier;
 use App\Services\SupplierService;
-use Illuminate\Http\JsonResponse;
 
 class SupplierController extends Controller
 {
@@ -18,6 +17,7 @@ class SupplierController extends Controller
     {
         $search = request('search');
         $suppliers = $this->service->paginated(15, $search);
+
         return view('suppliers.index', compact('suppliers'));
     }
 
@@ -32,6 +32,7 @@ class SupplierController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Supplier created.', 'data' => $supplier], 201);
         }
+
         return redirect()->route('suppliers.show', $supplier)->with('success', 'Supplier created successfully.');
     }
 
@@ -67,6 +68,7 @@ class SupplierController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Supplier updated.', 'data' => $supplier]);
         }
+
         return redirect()->route('suppliers.show', $supplier)->with('success', 'Supplier updated successfully.');
     }
 
@@ -94,6 +96,7 @@ class SupplierController extends Controller
         if (request()->wantsJson()) {
             return response()->json(['message' => 'Supplier deleted.']);
         }
+
         return redirect()->route('suppliers.index')->with('success', 'Supplier deleted successfully.');
     }
 }

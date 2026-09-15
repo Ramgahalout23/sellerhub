@@ -119,7 +119,7 @@ class ProductSeeder extends Seeder
             );
 
             // Attach suppliers via pivot
-            if (!empty($supplierNames)) {
+            if (! empty($supplierNames)) {
                 $supplierIds = Supplier::whereIn('name', $supplierNames)->pluck('id');
                 $product->suppliers()->syncWithPivotValues($supplierIds, [
                     'last_known_price' => $product->cost_price,

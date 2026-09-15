@@ -35,6 +35,14 @@ class BatchOrder extends Model
         return $this->hasMany(BatchOrderItem::class);
     }
 
+    /**
+     * Supplier invoices attached to this purchase (one or more files).
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(BatchOrderInvoice::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     // --- Scopes ---
 
     public function scopeForDate($query, $date)
@@ -50,5 +58,17 @@ class BatchOrder extends Model
     public function scopeRecent($query)
     {
         return $query->orderByDesc('order_date');
+    }
+
+    // --- Helpers ---
+
+    /**
+     * Whether at least one supplier invoice is attached.
+     */
+    public function hasInvoice(): bool
+    {
+        return $this->relationLoaded('invoices')
+            ? $this->invoices->isNotEmpty()
+            : $this->invoices()->exists();
     }
 }

@@ -39,6 +39,7 @@ class AlertRepository
     public function markAsRead(Alert $alert): Alert
     {
         $alert->markAsRead();
+
         return $alert->fresh();
     }
 

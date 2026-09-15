@@ -46,6 +46,7 @@ class SupplierRepository
     public function update(Supplier $supplier, array $data): Supplier
     {
         $supplier->update($data);
+
         return $supplier->fresh();
     }
 

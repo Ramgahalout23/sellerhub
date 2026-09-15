@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemBatch;
 use App\Models\OrderItemReturn;
+use App\Models\Platform;
 use App\Models\Product;
 use App\Models\StockBatch;
 use Illuminate\Support\Carbon;
@@ -21,7 +23,9 @@ class InsightsService
 
         foreach ($supplierGroups as $supplierId => $supplierBatches) {
             $supplier = $supplierBatches->first()->supplier;
-            if (!$supplier) continue;
+            if (! $supplier) {
+                continue;
+            }
 
             $batchIds = $supplierBatches->pluck('id');
             $originalQty = $supplierBatches->sum('original_quantity');
@@ -38,7 +42,7 @@ class InsightsService
             $missingQty = OrderItem::whereIn('id', $orderItemIds)->where('status', 'missing')->sum('quantity');
 
             $cogs = OrderItemBatch::whereIn('stock_batch_id', $batchIds)
-                ->whereHas('orderItem', fn($q) => $q->where('status', 'successful'))
+                ->whereHas('orderItem', fn ($q) => $q->where('status', 'successful'))
                 ->sum(DB::raw('quantity_deducted * (SELECT unit_cost FROM stock_batches WHERE id = stock_batch_id)'));
 
             // Only count charges on successful items (not pending/missing)
@@ -59,21 +63,37 @@ class InsightsService
             ];
         }
 
-        usort($results, fn($a, $b) => $b['net_profit'] <=> $a['net_profit']);
+        usort($results, fn ($a, $b) => $b['net_profit'] <=> $a['net_profit']);
+
         return ['product' => $product, 'suppliers' => $results];
     }
 
-    public function topProfitableProducts(): array { return $this->getProductRankings('profit_desc'); }
-    public function topLossMakingProducts(): array { return $this->getProductRankings('loss_desc'); }
-    public function lowestReturnRatioProducts(): array { return $this->getProductRankings('return_ratio_asc'); }
+    public function topProfitableProducts(): array
+    {
+        return $this->getProductRankings('profit_desc');
+    }
+
+    public function topLossMakingProducts(): array
+    {
+        return $this->getProductRankings('loss_desc');
+    }
+
+    public function lowestReturnRatioProducts(): array
+    {
+        return $this->getProductRankings('return_ratio_asc');
+    }
 
     public function healthScoreRankings(): array
     {
         $products = $this->getProductRankings('profit_desc');
-        if (empty($products)) return [];
+        if (empty($products)) {
+            return [];
+        }
 
-        $maxProfit = max(array_map(fn($p) => abs($p['net_profit']), $products));
-        if ($maxProfit == 0) $maxProfit = 1;
+        $maxProfit = max(array_map(fn ($p) => abs($p['net_profit']), $products));
+        if ($maxProfit == 0) {
+            $maxProfit = 1;
+        }
 
         foreach ($products as &$p) {
             $profitScore = $p['net_profit'] >= 0
@@ -86,9 +106,12 @@ class InsightsService
         }
         unset($p);
 
-        usort($products, fn($a, $b) => $b['health_score'] <=> $a['health_score']);
-        foreach ($products as $i => &$p) { $p['rank'] = $i + 1; }
+        usort($products, fn ($a, $b) => $b['health_score'] <=> $a['health_score']);
+        foreach ($products as $i => &$p) {
+            $p['rank'] = $i + 1;
+        }
         unset($p);
+
         return $products;
     }
 
@@ -109,7 +132,7 @@ class InsightsService
         while ($cursor->lte($endMonth)) {
             $monthWindows[] = [
                 'start' => $cursor->copy()->startOfMonth(),
-                'end'   => $cursor->copy()->endOfMonth(),
+                'end' => $cursor->copy()->endOfMonth(),
                 'label' => $cursor->format('M Y'),
             ];
             $cursor->addMonth();
@@ -164,6 +187,184 @@ class InsightsService
         return $results;
     }
 
+    /**
+     * Which marketplace actually makes money, after fees and returns?
+     *
+     * Uses a fixed set of grouped aggregates (one query per metric family) so the cost
+     * is the same whether you sell on 1 platform or 10 — never a query per platform.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function platformComparison(?int $months = null): array
+    {
+        $from = $months ? Carbon::now()->subMonths($months)->startOfMonth() : null;
+
+        $totals = $this->platformItemTotals($from);
+        $fees = $this->platformColumn($from, 'order_item_charges', 'SUM(order_item_charges.amount)', 'fees', function ($query) {
+            return $query->where('order_items.status', 'successful');
+        });
+        $cogs = $this->platformColumn($from, 'order_item_batches', 'SUM(order_item_batches.quantity_deducted * stock_batches.unit_cost)', 'cogs', function ($query) {
+            return $query->where('order_items.status', 'successful');
+        }, joins: [['stock_batches', 'stock_batches.id', 'order_item_batches.stock_batch_id']]);
+        $returns = $this->platformColumn($from, 'order_item_returns', 'SUM(order_item_returns.quantity_returned)', 'returned_qty');
+
+        $results = [];
+
+        foreach (Platform::query()->orderBy('name')->get() as $platform) {
+            $row = $totals[$platform->id] ?? null;
+
+            $soldQty = (int) ($row->sold_qty ?? 0);
+            $revenue = (float) ($row->revenue ?? 0);
+            $platformFees = (float) ($fees[$platform->id]->fees ?? 0);
+            $platformCogs = (float) ($cogs[$platform->id]->cogs ?? 0);
+
+            // Batches weren't always recorded, so fall back to the product's cost price.
+            if ($platformCogs <= 0 && $soldQty > 0) {
+                $platformCogs = (float) ($row->estimated_cogs ?? 0);
+            }
+
+            $returnedQty = (int) ($returns[$platform->id]->returned_qty ?? 0);
+            $dispatched = (int) ($row->dispatched_qty ?? 0);
+            $orders = (int) ($row->orders_count ?? 0);
+            $netProfit = $revenue - $platformCogs - $platformFees;
+
+            $results[] = [
+                'platform' => $platform,
+                'orders' => $orders,
+                'sold_qty' => $soldQty,
+                'dispatched_qty' => $dispatched,
+                'revenue' => round($revenue, 2),
+                'cogs' => round($platformCogs, 2),
+                'fees' => round($platformFees, 2),
+                'net_profit' => round($netProfit, 2),
+                'returned_qty' => $returnedQty,
+                'return_rate' => $dispatched > 0 ? round($returnedQty / $dispatched * 100, 1) : 0,
+                'rto_qty' => (int) ($row->rto_qty ?? 0),
+                'missing_qty' => (int) ($row->missing_qty ?? 0),
+                'margin' => $revenue > 0 ? round($netProfit / $revenue * 100, 1) : 0,
+                'profit_per_order' => $orders > 0 ? round($netProfit / $orders, 2) : 0,
+                'has_sales' => $orders > 0,
+            ];
+        }
+
+        usort($results, fn ($a, $b) => $b['net_profit'] <=> $a['net_profit']);
+
+        return $results;
+    }
+
+    /**
+     * Order/item/sales totals grouped by platform (one query).
+     */
+    private function platformItemTotals(?Carbon $from): array
+    {
+        $query = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+            ->groupBy('orders.platform_id')
+            ->selectRaw('orders.platform_id')
+            ->selectRaw('COUNT(DISTINCT orders.id) as orders_count')
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'successful' THEN order_items.quantity ELSE 0 END) as sold_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'successful' THEN order_items.quantity * order_items.selling_price ELSE 0 END) as revenue")
+            ->selectRaw("SUM(CASE WHEN order_items.status <> 'pending' THEN order_items.quantity ELSE 0 END) as dispatched_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'missing' THEN order_items.quantity ELSE 0 END) as missing_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'rto' THEN order_items.quantity ELSE 0 END) as rto_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'successful' THEN order_items.quantity * COALESCE(products.cost_price, 0) ELSE 0 END) as estimated_cogs");
+
+        if ($from) {
+            $query->where('orders.created_at', '>=', $from);
+        }
+
+        return $query->get()->keyBy('platform_id')->all();
+    }
+
+    /**
+     * Generic "one grouped sum per platform" helper, so every extra metric costs
+     * exactly one query rather than one per platform.
+     *
+     * @param  array<int, array{0:string,1:string,2:string}>  $joins  extra [table, first, second] joins
+     */
+    private function platformColumn(
+        ?Carbon $from,
+        string $table,
+        string $expression,
+        string $alias,
+        ?callable $constrain = null,
+        array $joins = []
+    ): array {
+        $query = DB::table($table)
+            ->join('order_items', 'order_items.id', '=', $table.'.order_item_id')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->groupBy('orders.platform_id')
+            ->selectRaw('orders.platform_id')
+            ->selectRaw($expression.' as '.$alias);
+
+        foreach ($joins as [$joinTable, $first, $second]) {
+            $query->join($joinTable, $first, '=', $second);
+        }
+
+        if ($constrain) {
+            $constrain($query);
+        }
+
+        if ($from) {
+            $query->where('orders.created_at', '>=', $from);
+        }
+
+        return $query->get()->keyBy('platform_id')->all();
+    }
+
+    /**
+     * Returns and RTO split by how the customer paid.
+     *
+     * COD is where nearly all RTO losses come from, so this is the number that decides
+     * whether offering it is worth it. One grouped query, so the cost is constant.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function paymentModeBreakdown(?int $months = null): array
+    {
+        $from = $months ? Carbon::now()->subMonths($months)->startOfMonth() : null;
+
+        $rows = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.status', '!=', Order::STATUS_CANCELLED)
+            ->when($from, fn ($q) => $q->where('orders.created_at', '>=', $from))
+            ->groupBy('orders.payment_mode')
+            ->selectRaw('orders.payment_mode')
+            ->selectRaw('COUNT(DISTINCT orders.id) as orders_count')
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'successful' THEN order_items.quantity ELSE 0 END) as sold_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'successful' THEN order_items.quantity * order_items.selling_price ELSE 0 END) as revenue")
+            ->selectRaw("SUM(CASE WHEN order_items.status <> 'pending' THEN order_items.quantity ELSE 0 END) as dispatched_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status IN ('customer_return','rto') THEN order_items.quantity ELSE 0 END) as returned_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'rto' THEN order_items.quantity ELSE 0 END) as rto_qty")
+            ->selectRaw("SUM(CASE WHEN order_items.status = 'missing' THEN order_items.quantity ELSE 0 END) as missing_qty")
+            ->get();
+
+        return $rows->map(function ($row) {
+            $mode = $row->payment_mode ?: Order::PAYMENT_MODE_PREPAID;
+            $orders = (int) $row->orders_count;
+            $revenue = (float) $row->revenue;
+            $dispatched = (int) $row->dispatched_qty;
+            $returned = (int) $row->returned_qty;
+            $rto = (int) $row->rto_qty;
+
+            return [
+                'mode' => $mode,
+                'label' => $mode === Order::PAYMENT_MODE_COD ? 'Cash on Delivery' : 'Prepaid',
+                'orders' => $orders,
+                'revenue' => round($revenue, 2),
+                'avg_order_value' => $orders > 0 ? round($revenue / $orders, 2) : 0,
+                'sold_qty' => (int) $row->sold_qty,
+                'dispatched_qty' => $dispatched,
+                'returned_qty' => $returned,
+                'rto_qty' => $rto,
+                'missing_qty' => (int) $row->missing_qty,
+                'return_rate' => $dispatched > 0 ? round($returned / $dispatched * 100, 1) : 0,
+                'rto_rate' => $dispatched > 0 ? round($rto / $dispatched * 100, 1) : 0,
+            ];
+        })->sortByDesc('orders')->values()->all();
+    }
+
     private function getProductRankings(string $sortBy): array
     {
         $products = Product::all();
@@ -201,13 +402,16 @@ class InsightsService
         }
 
         match ($sortBy) {
-            'profit_desc' => usort($rankings, fn($a, $b) => $b['net_profit'] <=> $a['net_profit']),
-            'loss_desc' => usort($rankings, fn($a, $b) => $a['net_profit'] <=> $b['net_profit']),
-            'return_ratio_asc' => usort($rankings, fn($a, $b) => $a['return_rate'] <=> $b['return_rate']),
+            'profit_desc' => usort($rankings, fn ($a, $b) => $b['net_profit'] <=> $a['net_profit']),
+            'loss_desc' => usort($rankings, fn ($a, $b) => $a['net_profit'] <=> $b['net_profit']),
+            'return_ratio_asc' => usort($rankings, fn ($a, $b) => $a['return_rate'] <=> $b['return_rate']),
         };
 
-        foreach ($rankings as $i => &$r) { $r['rank'] = $i + 1; }
+        foreach ($rankings as $i => &$r) {
+            $r['rank'] = $i + 1;
+        }
         unset($r);
+
         return $rankings;
     }
 }

@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreBatchOrderRequest;
 use App\Models\BatchOrder;
+use App\Models\BatchOrderInvoice;
 use App\Models\Product;
 use App\Services\BatchOrderService;
 use App\Services\SupplierService;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BatchOrderController extends Controller
 {
@@ -40,12 +40,12 @@ class BatchOrderController extends Controller
     {
         $data = $request->validated();
         $items = $data['items'];
-        unset($data['items']);
+        unset($data['items'], $data['invoices']);
 
         // Process each item — create new products if needed
         $processedItems = [];
         foreach ($items as $index => $item) {
-            $isExisting = !empty($item['product_id']);
+            $isExisting = ! empty($item['product_id']);
 
             if ($isExisting) {
                 // Existing product — just link it
@@ -88,20 +88,28 @@ class BatchOrderController extends Controller
 
         $batchOrder = $this->service->create($data, $processedItems);
 
+        $attached = $this->saveInvoices($request, $batchOrder);
+
+        $message = 'Batch order created successfully. '.count($processedItems).' product(s) added to stock.';
+        if ($attached > 0) {
+            $message .= " {$attached} supplier invoice file(s) attached.";
+        }
+
         return redirect()
             ->route('batch-orders.show', $batchOrder)
-            ->with('success', 'Batch order created successfully. ' . count($processedItems) . ' product(s) added to stock.');
+            ->with('success', $message);
     }
 
     public function show(BatchOrder $batchOrder)
     {
-        $batchOrder->load(['supplier', 'items.product']);
+        $batchOrder->load(['supplier', 'items.product', 'invoices']);
+
         return view('batch-orders.show', compact('batchOrder'));
     }
 
     public function edit(BatchOrder $batchOrder)
     {
-        $batchOrder->load(['supplier', 'items.product']);
+        $batchOrder->load(['supplier', 'items.product', 'invoices']);
         $suppliers = $this->supplierService->allActive();
         $products = Product::active()->orderBy('name')->get();
 
@@ -112,13 +120,20 @@ class BatchOrderController extends Controller
     {
         $data = $request->validated();
         $items = $data['items'] ?? [];
-        unset($data['items']);
+        unset($data['items'], $data['invoices']);
 
         $batchOrder = $this->service->update($batchOrder, $data, $items);
 
+        $attached = $this->saveInvoices($request, $batchOrder);
+
+        $message = 'Batch order updated successfully.';
+        if ($attached > 0) {
+            $message .= " {$attached} supplier invoice file(s) added.";
+        }
+
         return redirect()
             ->route('batch-orders.show', $batchOrder)
-            ->with('success', 'Batch order updated successfully.');
+            ->with('success', $message);
     }
 
     public function deleteItem(BatchOrder $batchOrder, $itemId)
@@ -135,9 +150,81 @@ class BatchOrderController extends Controller
 
     public function destroy(BatchOrder $batchOrder)
     {
+        $this->deleteInvoiceFiles($batchOrder);
         $this->service->delete($batchOrder);
+
         return redirect()
             ->route('batch-orders.index')
             ->with('success', 'Batch order deleted. Stock changes have been reversed.');
+    }
+
+    /**
+     * Stream an attached supplier invoice through an authenticated route.
+     * The invoice disk is private, so it is never exposed by the web server.
+     */
+    public function downloadInvoice(BatchOrder $batchOrder, BatchOrderInvoice $invoice)
+    {
+        abort_unless(Storage::disk('invoices')->exists($invoice->path), 404);
+
+        return Storage::disk('invoices')->response($invoice->path, $invoice->filename);
+    }
+
+    /**
+     * Remove a single attached invoice file.
+     */
+    public function deleteInvoice(BatchOrder $batchOrder, BatchOrderInvoice $invoice)
+    {
+        Storage::disk('invoices')->delete($invoice->path);
+        $invoice->delete();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Invoice removed.');
+    }
+
+    /**
+     * Store one or more supplier invoice files against a batch order.
+     *
+     * @return int number of files stored
+     */
+    protected function saveInvoices(Request $request, BatchOrder $batchOrder): int
+    {
+        $files = $request->file('invoices');
+
+        if (empty($files)) {
+            return 0;
+        }
+
+        $files = is_array($files) ? $files : [$files];
+        $nextOrder = (int) ($batchOrder->invoices()->max('sort_order') ?? -1) + 1;
+        $saved = 0;
+
+        foreach ($files as $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+
+            $batchOrder->invoices()->create([
+                'path' => $file->store('', 'invoices'),
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'size' => $file->getSize(),
+                'sort_order' => $nextOrder++,
+            ]);
+
+            $saved++;
+        }
+
+        return $saved;
+    }
+
+    /**
+     * Delete every invoice file belonging to a batch order.
+     */
+    protected function deleteInvoiceFiles(BatchOrder $batchOrder): void
+    {
+        foreach ($batchOrder->invoices as $invoice) {
+            Storage::disk('invoices')->delete($invoice->path);
+        }
     }
 }

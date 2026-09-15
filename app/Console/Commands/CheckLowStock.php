@@ -18,6 +18,7 @@ class CheckLowStock extends Command
 
         if ($lowStockProducts->isEmpty()) {
             $this->info('All products are well stocked.');
+
             return self::SUCCESS;
         }
 
@@ -33,6 +34,7 @@ class CheckLowStock extends Command
 
             if ($exists) {
                 $this->line("  ⏭  Alert already exists for {$product->sku}");
+
                 continue;
             }
 
@@ -47,7 +49,7 @@ class CheckLowStock extends Command
 
             Alert::create([
                 'type' => Alert::TYPE_LOW_STOCK,
-                'title' => ($product->stock_quantity === 0 ? 'Out of stock' : 'Low stock') . " — {$product->name}",
+                'title' => ($product->stock_quantity === 0 ? 'Out of stock' : 'Low stock')." — {$product->name}",
                 'message' => $message,
                 'entity_type' => 'product',
                 'entity_id' => $product->id,

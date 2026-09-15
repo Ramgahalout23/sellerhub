@@ -30,14 +30,16 @@ class PlatformService
     public function create(array $data): Platform
     {
         $data['slug'] = $data['slug'] ?? \Str::slug($data['name']);
+
         return $this->repo->create($data);
     }
 
     public function update(Platform $platform, array $data): Platform
     {
-        if (isset($data['name']) && !isset($data['slug'])) {
+        if (isset($data['name']) && ! isset($data['slug'])) {
             $data['slug'] = \Str::slug($data['name']);
         }
+
         return $this->repo->update($platform, $data);
     }
 

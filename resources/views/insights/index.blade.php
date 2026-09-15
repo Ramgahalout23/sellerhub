@@ -33,6 +33,9 @@
         <button data-tab="health" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('health')">
             <i class="bi bi-heart-pulse"></i> Health
         </button>
+        <button data-tab="platforms" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('platforms')">
+            <i class="bi bi-shop"></i> Platforms
+        </button>
         <button data-tab="trend" class="tab-btn px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[44px]" onclick="switchTab('trend')">
             <i class="bi bi-calendar-range"></i> Trend
         </button>
@@ -109,7 +112,38 @@
         </div>
     </div>
 
-    {{-- ═══════ TAB 6: Time Trend ═══════ --}}
+    {{-- ═══════ TAB 6: Platform Comparison ═══════ --}}
+    <div class="insights-tab" id="tab-platforms">
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 lg:p-5">
+            <div class="mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-bold text-gray-900">Marketplace Profit</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Revenue, fees and returns per platform — where to push stock and ad spend</p>
+                </div>
+                <div class="shrink-0">
+                    <label class="text-xs font-medium text-gray-600 mb-1.5 block">Period</label>
+                    <select id="pcMonths"
+                            class="w-full sm:w-44 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 touch-target"
+                            onchange="loadPlatformComparison(); loadPaymentModes();">
+                        <option value="" selected>All time</option>
+                        <option value="1">This month</option>
+                        <option value="3">Last 3 months</option>
+                        <option value="6">Last 6 months</option>
+                        <option value="12">Last 12 months</option>
+                    </select>
+                </div>
+            </div>
+            <div id="platformResults"></div>
+
+            <div class="mt-5 pt-5 border-t border-gray-100">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">COD vs Prepaid</h3>
+                <p class="text-xs text-gray-500 mb-3 mt-0.5">Where returns and RTO actually come from</p>
+                <div id="paymentModeResults"></div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ═══════ TAB 7: Time Trend ═══════ --}}
     <div class="insights-tab" id="tab-trend">
         <div class="bg-white rounded-2xl border border-gray-200 p-4 lg:p-5">
             <div class="mb-4">
@@ -185,6 +219,7 @@ function switchTab(tab) {
         if (tab === 'loss') loadRankings('loss', 'lossResults');
         if (tab === 'returns') loadRankings('return_ratio', 'returnResults');
         if (tab === 'health') loadHealthScores();
+        if (tab === 'platforms') { loadPlatformComparison(); loadPaymentModes(); }
     }
 }
 
@@ -346,6 +381,144 @@ function loadHealthScores() {
                 html += '</div></a>';
             });
             html += '</div>';
+            box.innerHTML = html;
+        });
+}
+
+// ═══════════════════════════════════════════
+// PLATFORM (MARKETPLACE) COMPARISON
+// ═══════════════════════════════════════════
+function fmtMoney(n) {
+    var abs = Math.abs(Math.round(n)).toLocaleString('en-IN');
+    return (n < 0 ? '-' : '') + '\u20B9' + abs;
+}
+
+function loadPlatformComparison() {
+    var box = document.getElementById('platformResults');
+    var months = document.getElementById('pcMonths').value;
+    box.innerHTML = '<div class="text-center py-8"><div class="inline-block w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>';
+
+    fetch('/insights/platform-comparison' + (months ? '?months=' + months : ''))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var rows = (data.platforms || []).filter(function(p) { return p.has_sales; });
+
+            if (rows.length === 0) {
+                box.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">No sales in this period</div>';
+                return;
+            }
+
+            var html = '';
+            var best = rows[0]; // rows arrive sorted by net profit
+
+            if (rows.length > 1) {
+                html += '<div class="rounded-xl bg-emerald-50 border border-emerald-100 p-3.5 mb-4 flex items-start gap-3">';
+                html += '<i class="bi bi-trophy text-emerald-600 text-lg shrink-0"></i>';
+                html += '<p class="text-xs text-emerald-800"><span class="font-bold">' + best.platform.name + '</span> earns the most: ';
+                html += '<span class="font-bold">' + fmtMoney(best.net_profit) + '</span> net (' + best.margin + '% margin) over ' + best.orders + ' order' + (best.orders === 1 ? '' : 's') + '.</p>';
+                html += '</div>';
+            }
+
+            html += '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-100">';
+            html += '<th class="text-left py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Platform</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Orders</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Revenue</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Fees</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Return %</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Net</th>';
+            html += '</tr></thead><tbody>';
+
+            rows.forEach(function(p) {
+                var pc = p.net_profit >= 0 ? 'text-emerald-600' : 'text-rose-600';
+                var rc = p.return_rate > 20 ? 'text-rose-600 bg-rose-50' : p.return_rate > 0 ? 'text-amber-600 bg-amber-50' : 'text-emerald-600 bg-emerald-50';
+
+                html += '<tr class="border-b border-gray-50 hover:bg-gray-50 transition">';
+                html += '<td class="py-3 px-2"><div class="font-semibold text-gray-900 text-sm">' + p.platform.name + '</div>';
+                html += '<div class="text-[10px] text-gray-400">' + p.sold_qty + ' sold' + (p.missing_qty > 0 ? ' · ' + p.missing_qty + ' missing' : '') + '</div></td>';
+                html += '<td class="py-3 px-2 text-right text-gray-700">' + p.orders + '</td>';
+                html += '<td class="py-3 px-2 text-right text-gray-700">' + fmtMoney(p.revenue) + '</td>';
+                html += '<td class="py-3 px-2 text-right text-gray-500">' + fmtMoney(p.fees) + '</td>';
+                html += '<td class="py-3 px-2 text-right"><span class="text-xs font-bold ' + rc + ' px-2 py-0.5 rounded-lg">' + p.return_rate + '%</span></td>';
+                html += '<td class="py-3 px-2 text-right"><span class="font-bold text-sm ' + pc + '">' + fmtMoney(p.net_profit) + '</span>';
+                html += '<span class="block text-[10px] text-gray-400">' + p.margin + '% margin</span></td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+
+            // Fees as a share of revenue is the quickest read on "is this platform expensive?"
+            html += '<div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3">';
+            rows.forEach(function(p) {
+                var feeRate = p.revenue > 0 ? Math.round(p.fees / p.revenue * 1000) / 10 : 0;
+                html += '<div class="bg-gray-50 rounded-xl p-3 border border-gray-100">';
+                html += '<p class="text-[10px] text-gray-400 uppercase font-semibold tracking-wide truncate">' + p.platform.name + '</p>';
+                html += '<p class="text-sm font-bold text-gray-900">' + feeRate + '% <span class="text-[10px] font-medium text-gray-400">fees</span></p>';
+                html += '<p class="text-[10px] text-gray-500">' + fmtMoney(p.profit_per_order) + ' per order</p>';
+                html += '</div>';
+            });
+            html += '</div>';
+
+            box.innerHTML = html;
+        });
+}
+
+// ═══════════════════════════════════════════
+// COD vs PREPAID — where the losses come from
+// ═══════════════════════════════════════════
+function loadPaymentModes() {
+    var box = document.getElementById('paymentModeResults');
+    if (!box) return;
+    var months = document.getElementById('pcMonths').value;
+    box.innerHTML = '<div class="text-center py-6"><div class="inline-block w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>';
+
+    fetch('/insights/payment-modes' + (months ? '?months=' + months : ''))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var rows = data.modes || [];
+            if (rows.length === 0) {
+                box.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">No orders in this period</div>';
+                return;
+            }
+
+            var html = '';
+            var cod = rows.filter(function(m) { return m.mode === 'cod'; })[0];
+            var prepaid = rows.filter(function(m) { return m.mode !== 'cod'; })[0];
+
+            // The whole point of tracking this: how much riskier COD actually is.
+            if (cod && prepaid && cod.return_rate > prepaid.return_rate && prepaid.return_rate >= 0) {
+                var ratio = prepaid.return_rate > 0 ? (cod.return_rate / prepaid.return_rate) : null;
+                html += '<div class="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-3 text-xs text-amber-800">';
+                html += 'COD returns <span class="font-bold">' + cod.return_rate + '%</span> vs <span class="font-bold">' + prepaid.return_rate + '%</span> prepaid';
+                if (ratio) html += ' — about <span class="font-bold">' + Math.round(ratio * 10) / 10 + '×</span> higher';
+                html += '.</div>';
+            }
+
+            html += '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-100">';
+            html += '<th class="text-left py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Payment</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Orders</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Dispatched</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Return %</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">RTO %</th>';
+            html += '<th class="text-right py-2.5 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Revenue</th>';
+            html += '</tr></thead><tbody>';
+
+            rows.forEach(function(m) {
+                var isCod = m.mode === 'cod';
+                var rrc = m.return_rate > 20 ? 'text-rose-600 bg-rose-50' : m.return_rate > 0 ? 'text-amber-600 bg-amber-50' : 'text-emerald-600 bg-emerald-50';
+                var ttc = m.rto_rate > 10 ? 'text-rose-600 bg-rose-50' : m.rto_rate > 0 ? 'text-amber-600 bg-amber-50' : 'text-emerald-600 bg-emerald-50';
+
+                html += '<tr class="border-b border-gray-50">';
+                html += '<td class="py-3 px-2"><span class="text-sm font-semibold text-gray-900">' + (isCod ? '\uD83D\uDCB5 COD' : '\uD83D\uDCB3 Prepaid') + '</span>';
+                html += '<div class="text-[10px] text-gray-400">' + m.orders + ' order' + (m.orders === 1 ? '' : 's') + ' · ' + fmtMoney(m.avg_order_value) + ' avg</div></td>';
+                html += '<td class="py-3 px-2 text-right text-gray-700">' + m.orders + '</td>';
+                html += '<td class="py-3 px-2 text-right text-gray-700">' + m.dispatched_qty + '</td>';
+                html += '<td class="py-3 px-2 text-right"><span class="text-xs font-bold ' + rrc + ' px-2 py-0.5 rounded-lg">' + m.return_rate + '%</span></td>';
+                html += '<td class="py-3 px-2 text-right"><span class="text-xs font-bold ' + ttc + ' px-2 py-0.5 rounded-lg">' + m.rto_rate + '%</span></td>';
+                html += '<td class="py-3 px-2 text-right text-gray-700">' + fmtMoney(m.revenue) + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
             box.innerHTML = html;
         });
 }

@@ -23,7 +23,7 @@ class ProductRepository
         }
 
         if ($supplierId) {
-            $query->whereHas('suppliers', fn($q) => $q->where('suppliers.id', $supplierId));
+            $query->whereHas('suppliers', fn ($q) => $q->where('suppliers.id', $supplierId));
         }
 
         return $query->paginate($perPage);
@@ -41,13 +41,16 @@ class ProductRepository
 
     public function find(int $id): Product
     {
-        return $this->model->with(['suppliers', 'batchOrderItems.batchOrder.supplier', 'orders.platform'])
+        return $this->model->with(['suppliers', 'batchOrderItems.batchOrder.supplier', 'orderItems.order.platform'])
             ->findOrFail($id);
     }
 
     public function findBySku(?string $sku): ?Product
     {
-        if (!$sku) return null;
+        if (! $sku) {
+            return null;
+        }
+
         return $this->model->where('sku', $sku)->first();
     }
 
@@ -59,6 +62,7 @@ class ProductRepository
     public function update(Product $product, array $data): Product
     {
         $product->update($data);
+
         return $product->fresh();
     }
 

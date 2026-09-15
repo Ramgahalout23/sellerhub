@@ -51,6 +51,7 @@ class BatchOrderRepository
     public function update(BatchOrder $batchOrder, array $data): BatchOrder
     {
         $batchOrder->update($data);
+
         return $batchOrder->fresh(['supplier', 'items.product']);
     }
 
@@ -58,6 +59,7 @@ class BatchOrderRepository
     {
         return DB::transaction(function () use ($batchOrder) {
             $batchOrder->items()->delete();
+
             return $batchOrder->delete();
         });
     }

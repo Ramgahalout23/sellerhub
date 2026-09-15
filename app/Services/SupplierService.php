@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Supplier;
 use App\Repositories\SupplierRepository;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class SupplierService
@@ -17,7 +18,7 @@ class SupplierService
         return $this->repo->paginated($perPage, $search);
     }
 
-    public function allActive(): \Illuminate\Database\Eloquent\Collection
+    public function allActive(): Collection
     {
         return $this->repo->allActive();
     }

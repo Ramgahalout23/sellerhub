@@ -73,19 +73,61 @@
             </div>
         </x-card>
 
-        <!-- Suppliers -->
-        <x-card title="Suppliers">
-            @forelse($suppliers as $s)
-                <a href="{{ route('suppliers.show', $s) }}" class="flex items-center justify-between py-3 {{ !$loop->last ? 'border-b border-gray-50' : '' }}">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">{{ $s->name }}</p>
-                        <p class="text-[11px] text-gray-400">Last purchase price</p>
+        <!-- Supplier Prices -->
+        <x-card title="Supplier Prices" subtitle="What each supplier last charged — cheapest first">
+            @if(empty($price_history['suppliers']))
+                @forelse($suppliers as $s)
+                    <a href="{{ route('suppliers.show', $s) }}" class="flex items-center justify-between py-3 {{ !$loop->last ? 'border-b border-gray-50' : '' }}">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ $s->name }}</p>
+                            <p class="text-[11px] text-gray-400">Last purchase price</p>
+                        </div>
+                        <p class="text-base font-bold text-gray-900">₹{{ number_format($s->pivot->last_known_price ?? 0) }}</p>
+                    </a>
+                @empty
+                    <p class="text-xs text-gray-400 text-center py-2">No purchases yet — record a batch order to compare prices.</p>
+                @endforelse
+            @else
+                @if(count($price_history['suppliers']) > 1 && $price_history['spread'] > 0)
+                    <div class="mb-3 rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs text-emerald-800">
+                        Cheapest now: <span class="font-bold">{{ $price_history['cheapest']['supplier_name'] }}</span>
+                        at <span class="font-bold">₹{{ number_format($price_history['cheapest_cost']) }}</span>
+                        — ₹{{ number_format($price_history['spread']) }} below the most expensive.
                     </div>
-                    <p class="text-base font-bold text-gray-900">₹{{ number_format($s->pivot->last_known_price ?? 0) }}</p>
-                </a>
-            @empty
-                <p class="text-xs text-gray-400 text-center py-2">No suppliers linked.</p>
-            @endforelse
+                @endif
+
+                <div class="space-y-1">
+                    @foreach($price_history['suppliers'] as $entry)
+                        @php
+                            $isCheapest = $loop->first;
+                            $change = $entry['change_percent'];
+                            $rose = $change !== null && $change > 0;
+                            $fell = $change !== null && $change < 0;
+                        @endphp
+                        <a href="{{ route('suppliers.show', $entry['supplier_id']) }}" class="flex items-center justify-between gap-2 py-2.5 {{ !$loop->last ? 'border-b border-gray-50' : '' }} hover:bg-gray-50/60 rounded-lg px-1 transition-colors">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">
+                                    {{ $entry['supplier_name'] }}
+                                    @if($isCheapest)
+                                        <x-badge variant="success" class="text-[10px]">Cheapest</x-badge>
+                                    @endif
+                                </p>
+                                <p class="text-[11px] text-gray-400">
+                                    {{ $entry['purchases'] }} purchase(s)
+                                    · last {{ $entry['last_date'] ? $entry['last_date']->format('d M Y') : '—' }}
+                                    @if($change !== null && $change != 0)
+                                        · <span class="font-semibold {{ $rose ? 'text-rose-500' : 'text-emerald-600' }}">{{ $rose ? '▲' : '▼' }} {{ abs($change) }}%</span>
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="text-base font-bold {{ $isCheapest ? 'text-emerald-600' : 'text-gray-900' }}">₹{{ number_format($entry['last_cost']) }}</p>
+                                <p class="text-[10px] text-gray-400">best ₹{{ number_format($entry['min_cost']) }} · avg ₹{{ number_format($entry['avg_cost']) }}</p>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
         </x-card>
     </div>
 
@@ -288,19 +330,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50" id="orderHistoryBody">
-                            @foreach($recent_orders as $item)
-                            <tr class="hover:bg-gray-50/50 transition-colors">
-                                <td class="py-2.5"><a href="{{ route('orders.show', $item->order) }}" class="font-medium text-brand-600 hover:text-brand-700">{{ $item->order->order_number ?? '#' . $item->order->id }}</a></td>
-                                <td class="py-2.5"><x-badge variant="info">{{ $item->order->platform->name }}</x-badge></td>
-                                <td class="py-2.5 text-gray-600">{{ $item->order->customer_name ?? '—' }}</td>
-                                <td class="py-2.5 text-right text-gray-600">{{ $item->quantity }}</td>
-                                <td class="py-2.5 text-right font-medium text-gray-900">₹{{ number_format($item->selling_price * $item->quantity) }}</td>
-                                <td class="py-2.5 text-center">
-                                    @php $sv = match($item->status) { 'successful' => 'success', 'customer_return','rto','missing' => 'danger', default => 'default' }; @endphp
-                                    <x-badge :variant="$sv">{{ ucfirst(str_replace('_', ' ', $item->status)) }}</x-badge>
-                                </td>
-                            </tr>
-                            @endforeach
+                            @include('products._sale-rows', ['recent_orders' => $recent_orders])
                         </tbody>
                     </table>
                 </div>

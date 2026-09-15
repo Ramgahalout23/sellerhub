@@ -16,6 +16,43 @@
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Order Date</p><p class="text-sm text-gray-700">{{ $batchOrder->order_date->format('d M Y') }}</p></div>
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Total Cost</p><p class="text-2xl font-bold text-gray-900">₹{{ number_format($batchOrder->total_cost) }}</p></div>
                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Notes</p><p class="text-sm text-gray-700">{{ $batchOrder->notes ?? '—' }}</p></div>
+                <div class="border-t border-gray-100 pt-3">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Supplier Invoices</p>
+                        @if($batchOrder->invoices->isNotEmpty())
+                            <span class="text-[10px] font-semibold text-gray-400">{{ $batchOrder->invoices->count() }} file(s)</span>
+                        @endif
+                    </div>
+
+                    @if($batchOrder->invoices->isEmpty())
+                        <p class="text-sm text-gray-400">No invoice attached</p>
+                        <a href="{{ route('batch-orders.edit', $batchOrder) }}" class="text-xs font-medium text-brand-600 hover:text-brand-700">Attach one →</a>
+                    @else
+                        <div class="grid grid-cols-2 gap-2">
+                            @foreach($batchOrder->invoices as $invoice)
+                                @php $url = route('batch-orders.invoices.download', [$batchOrder, $invoice]); @endphp
+                                <div class="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:border-brand-300 hover:shadow-sm">
+                                    <a href="{{ $url }}" target="_blank" title="Open {{ $invoice->filename }}">
+                                        @if($invoice->is_image)
+                                            <img src="{{ $url }}" alt="{{ $invoice->filename }}" loading="lazy" class="h-24 w-full bg-gray-50 object-cover">
+                                        @else
+                                            <div class="flex h-24 items-center justify-center bg-gray-50"><i class="bi bi-file-earmark-pdf text-3xl text-rose-500"></i></div>
+                                        @endif
+                                        <div class="p-2">
+                                            <p class="truncate text-xs font-medium text-gray-700 group-hover:text-brand-600">{{ $invoice->filename }}</p>
+                                            <p class="text-[10px] uppercase text-gray-400">{{ $invoice->extension }}@if($invoice->human_size) · {{ $invoice->human_size }}@endif</p>
+                                        </div>
+                                    </a>
+                                    <form action="{{ route('batch-orders.invoices.destroy', [$batchOrder, $invoice]) }}" method="POST" class="border-t border-gray-100 px-2 py-1 text-right" onsubmit="return confirm('Remove {{ $invoice->filename }}?')">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-[10px] font-medium text-gray-400 hover:text-rose-600 transition-colors"><i class="bi bi-trash"></i> Remove</button>
+                                    </form>
+                                </div>
+                            @endforeach
+                        </div>
+                        <a href="{{ route('batch-orders.edit', $batchOrder) }}" class="mt-2 inline-block text-xs font-medium text-brand-600 hover:text-brand-700">Add more →</a>
+                    @endif
+                </div>
             </div>
         </x-card>
     </div>

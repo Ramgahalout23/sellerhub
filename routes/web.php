@@ -7,11 +7,14 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\BatchOrderController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\PlatformController;
-use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\InsightsController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OrderImportController;
+use App\Http\Controllers\PlatformController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SupplierController;
+use App\Models\Product;
+use App\Models\StockBatch;
 use Illuminate\Support\Facades\Route;
 
 // --- Auth Routes (Guest only) ---
@@ -46,13 +49,30 @@ Route::middleware('auth')->group(function () {
     Route::resource('products', ProductController::class);
 
     // Batch Orders
+    // Scoped binding ensures an invoice must belong to the batch order in the URL.
+    Route::get('batch-orders/{batchOrder}/invoices/{invoice}', [BatchOrderController::class, 'downloadInvoice'])
+        ->scopeBindings()
+        ->name('batch-orders.invoices.download');
+    Route::delete('batch-orders/{batchOrder}/invoices/{invoice}', [BatchOrderController::class, 'deleteInvoice'])
+        ->scopeBindings()
+        ->name('batch-orders.invoices.destroy');
     Route::resource('batch-orders', BatchOrderController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
     Route::delete('batch-orders/{batchOrder}/items/{item}', [BatchOrderController::class, 'deleteItem'])->name('batch-orders.delete-item');
 
     // Orders
     Route::get('orders/reminders', [OrderController::class, 'needsReminder'])->name('orders.reminders');
+    Route::get('orders/charge-preview', [OrderController::class, 'chargePreview'])->name('orders.charge-preview');
+    Route::patch('orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
+
+    // Marketplace CSV import (declared before the orders resource so it wins)
+    Route::get('orders/import', [OrderImportController::class, 'create'])->name('orders.import.create');
+    Route::post('orders/import', [OrderImportController::class, 'store'])->name('orders.import.store');
+    Route::get('orders/import/template', [OrderImportController::class, 'template'])->name('orders.import.template');
     Route::patch('orders/{order}/shipment-status', [OrderController::class, 'updateShipmentStatus'])->name('orders.update-shipment-status');
-    Route::patch('orders/{order}/items/{item}/status', [OrderController::class, 'updateItemStatus'])->name('orders.update-item-status');
+    // Scoped binding ensures {item} actually belongs to {order}.
+    Route::patch('orders/{order}/items/{item}/status', [OrderController::class, 'updateItemStatus'])
+        ->scopeBindings()
+        ->name('orders.update-item-status');
     Route::resource('orders', OrderController::class)->except(['edit', 'update']);
 
     // Accounting
@@ -65,6 +85,14 @@ Route::middleware('auth')->group(function () {
     Route::patch('accounting/payments/{payment}', [AccountingController::class, 'updatePayment'])->name('accounting.payments.update');
     Route::delete('accounting/payments/{payment}', [AccountingController::class, 'destroyPayment'])->name('accounting.payments.destroy');
 
+    // Platform Settlements (gross / fees / net payouts, with aging)
+    Route::get('accounting/settlements', [AccountingController::class, 'settlements'])->name('accounting.settlements');
+    Route::get('accounting/settlements/suggest', [AccountingController::class, 'suggestSettlement'])->name('accounting.settlements.suggest');
+    Route::post('accounting/settlements', [AccountingController::class, 'storeSettlement'])->name('accounting.settlements.store');
+    Route::patch('accounting/settlements/{settlement}', [AccountingController::class, 'updateSettlement'])->name('accounting.settlements.update');
+    Route::patch('accounting/settlements/{settlement}/received', [AccountingController::class, 'receiveSettlement'])->name('accounting.settlements.received');
+    Route::delete('accounting/settlements/{settlement}', [AccountingController::class, 'destroySettlement'])->name('accounting.settlements.destroy');
+
     // General Expenses
     Route::get('accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');
     Route::post('accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
@@ -72,13 +100,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('accounting/expenses/{expense}', [AccountingController::class, 'destroyExpense'])->name('accounting.expenses.destroy');
 
     // Stock source preview (for order form)
-    Route::get('api/products/{product}/stock-batches', function (\App\Models\Product $product) {
-        $batches = \App\Models\StockBatch::where('product_id', $product->id)
+    Route::get('api/products/{product}/stock-batches', function (Product $product) {
+        $batches = StockBatch::where('product_id', $product->id)
             ->where('remaining_quantity', '>', 0)
             ->orderBy('created_at', 'asc')
             ->with('supplier')
             ->get();
-        return response()->json($batches->map(fn($b) => [
+
+        return response()->json($batches->map(fn ($b) => [
             'id' => $b->id,
             'supplier' => $b->supplier->name ?? 'Unknown',
             'remaining' => $b->remaining_quantity,
@@ -91,6 +120,8 @@ Route::middleware('auth')->group(function () {
     Route::get('insights', [InsightsController::class, 'index'])->name('insights.index');
     Route::get('insights/supplier-comparison', [InsightsController::class, 'supplierComparison'])->name('insights.supplier-comparison');
     Route::get('insights/rankings', [InsightsController::class, 'rankings'])->name('insights.rankings');
+    Route::get('insights/platform-comparison', [InsightsController::class, 'platformComparison'])->name('insights.platform-comparison');
+    Route::get('insights/payment-modes', [InsightsController::class, 'paymentModes'])->name('insights.payment-modes');
     Route::get('insights/health-scores', [InsightsController::class, 'healthScores'])->name('insights.health-scores');
     Route::get('insights/time-trend', [InsightsController::class, 'timeTrend'])->name('insights.time-trend');
 
